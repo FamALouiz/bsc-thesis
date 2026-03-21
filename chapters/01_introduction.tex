@@ -3,93 +3,14 @@
 
 \chapter{Introduction}\label{chapter:introduction}
 
-\section{Section}
-Citation test~\parencite{latex}.
+Tensor network contractions have become a core computational primitive in fields ranging from quantum many-body physics and quantum circuit simulation to chemistry and high-dimensional machine learning and data analysis. Their appeal comes from the ability to represent and manipulate exponentially large objects through structured factorizations, often making previously intractable problems accessible in practice \cite{evenbly2014improving}. Yet this promise comes with a major obstacle: the cost of contracting a tensor network can grow dramatically depending on how intermediate tensors are formed. In many realistic settings, the limiting factor is not only the number of arithmetic operations, but the peak memory required to store these intermediates. A contraction strategy that is theoretically efficient in \ac{FLOPS} may still be unusable in practice if it creates tensors too large to fit in memory.
 
-Acronyms must be added in \texttt{main.tex} and are referenced using macros. The first occurrence is automatically replaced with the long version of the acronym, while all subsequent usages use the abbreviation.
+This makes memory reduction a central problem rather than a secondary implementation concern. Prior work on contraction ordering has already shown that the sequence in which tensors are contracted has a decisive impact on computational feasibility and overall performance \cite{pfeifer2014faster,schindler2020algorithms}. At the same time, high-performance tensor contraction frameworks and tensor-transposition libraries have demonstrated that practical efficiency depends heavily on how contractions are mapped onto hardware, how data is rearranged, and how temporary storage is managed \cite{hirata2003tensor,DBLP:journals/corr/SpringerB16}. In other words, optimizing tensor networks requires attention not only to algebraic structure, but also to memory footprint, data movement, and layout-aware execution.
 
-E.g. \texttt{\textbackslash ac\{TUM\}, \textbackslash ac\{TUM\}} $\Rightarrow$ \ac{TUM}, \ac{TUM}, \ac{GIU Berlin}
+The importance of optimizing tensor network contractions originates from both theoretical and practical considerations. From a theoretical perspective, tensor contraction is known to be computationally hard in general, with complexity that can grow exponentially with the size of the network \cite{pfeifer2014faster}. From a practical standpoint, modern applications such as quantum circuit simulation and many-body physics rely heavily on large-scale tensor contractions, where inefficiencies quickly become restrictive.
 
-For more details, see the documentation of the \texttt{acronym} package\footnote{\url{https://ctan.org/pkg/acronym}}.
-\subsection{Subsection}
+A key observation in \ac{HPC} is that memory bandwidth and data movement increasingly dominate execution time, often surpassing the cost of \ac{FLOPS} \cite{hirata2003tensor,huang2021efficient}. In large-scale simulations, such as those targeting quantum supremacy benchmarks \cite{springer2017hptt,huang2021efficient}, the ability to efficiently manage memory and minimize data movement is critical to achieving feasible runtimes.
 
-See~\autoref{tab:sample}, \autoref{fig:sample-drawing}, \autoref{fig:sample-plot}, \autoref{fig:sample-listing}.
+Moreover, the peak memory usage during tensor contraction directly determines whether a computation is even possible on a given system. Many tensor network contractions fail not due to computational limits, but because intermediate tensors exceed available memory. As a result, reducing peak memory usage is not merely an optimization objective, but a fundamental requirement for scalability.
 
-\begin{table}[htpb]
-  \caption[Example table]{An example for a simple table.}\label{tab:sample}
-  \centering
-  \begin{tabular}{l l l l}
-    \toprule
-      A & B & C & D \\
-    \midrule
-      1 & 2 & 1 & 2 \\
-      2 & 3 & 2 & 3 \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-
-\begin{figure}[htpb]
-  \centering
-  % This should probably go into a file in figures/
-  \begin{tikzpicture}[node distance=3cm]
-    \node (R0) {$R_1$};
-    \node (R1) [right of=R0] {$R_2$};
-    \node (R2) [below of=R1] {$R_4$};
-    \node (R3) [below of=R0] {$R_3$};
-    \node (R4) [right of=R1] {$R_5$};
-
-    \path[every node]
-      (R0) edge (R1)
-      (R0) edge (R3)
-      (R3) edge (R2)
-      (R2) edge (R1)
-      (R1) edge (R4);
-  \end{tikzpicture}
-  \caption[Example drawing]{An example for a simple drawing.}\label{fig:sample-drawing}
-\end{figure}
-
-\begin{figure}[htpb]
-  \centering
-
-  \pgfplotstableset{col sep=&, row sep=\\}
-  % This should probably go into a file in data/
-  \pgfplotstableread{
-    a & b    \\
-    1 & 1000 \\
-    2 & 1500 \\
-    3 & 1600 \\
-  }\exampleA
-  \pgfplotstableread{
-    a & b    \\
-    1 & 1200 \\
-    2 & 800 \\
-    3 & 1400 \\
-  }\exampleB
-  % This should probably go into a file in figures/
-  \begin{tikzpicture}
-    \begin{axis}[
-        ymin=0,
-        legend style={legend pos=south east},
-        grid,
-        thick,
-        ylabel=Y,
-        xlabel=X
-      ]
-      \addplot table[x=a, y=b]{\exampleA};
-      \addlegendentry{Example A}
-      \addplot table[x=a, y=b]{\exampleB};
-      \addlegendentry{Example B}
-    \end{axis}
-  \end{tikzpicture}
-  \caption[Example plot]{An example for a simple plot.}\label{fig:sample-plot}
-\end{figure}
-
-\begin{figure}[htpb]
-  \centering
-  \begin{tabular}{c}
-  \begin{lstlisting}[language=SQL]
-    SELECT * FROM tbl WHERE tbl.str = "str"
-  \end{lstlisting}
-  \end{tabular}
-  \caption[Example listing]{An example for a source code listing.}\label{fig:sample-listing}
-\end{figure}
+Despite these challenges, most existing optimization techniques primarily focus on reducing computational cost (\ac{FLOPS}) through contraction ordering, often overlooking memory-related factors such as tensor layout, data locality, and permutation overhead. This creates a gap between theoretical optimization and practical performance, particularly on modern architectures where memory hierarchy plays a central role.
