@@ -61,3 +61,36 @@ In this graphical framework, each tensor is depicted as a node (typically drawn 
 Consider a simple example: contracting two tensors $\mathcal{A}_{ij}$ and $\mathcal{B}_{jk}$ to produce $\mathcal{C}_{ik}$. In tensor network notation, $\mathcal{A}$ appears as a node with two legs (for indices $i$ and $j$), and $\mathcal{B}$ appears as a separate node with two legs (for indices $j$ and $k$). The leg corresponding to index $j$ in $\mathcal{A}$ is connected to the leg corresponding to index $j$ in $\mathcal{B}$, indicating that these indices are contracted. The remaining legs (corresponding to $i$ and $k$) dangle freely, representing the free indices of the result tensor $\mathcal{C}$. Figure \ref{fig:tensor_network_representation} illustrates this concept with more examples.
 
 More complex tensor networks can compactly represent intricate contraction patterns that would be cumbersome to express algebraically. The graphical representation immediately reveals the structure of the network i.e., which tensors share indices, the connectivity pattern, and which indices remain uncontracted. This makes tensor network diagrams important for visualizing and reasoning about large-scale contractions \cite{biamonte2017tensor}. 
+
+\subsection{Basic Linear Algebra Subprograms} 
+\ac{BLAS} is a standardized specification for low-level linear algebra operations that serves as a foundation for high-performance numerical computing. Originally developed in the late 1970s \cite{lawson1979basic}, \ac{BLAS} provides a portable and efficient interface for fundamental vector and matrix operations, enabling libraries and applications to achieve near-optimal performance across diverse hardware architectures.
+
+\ac{BLAS} operations are organized into three hierarchical levels, each characterized by the computational intensity (ratio of arithmetic operations to memory accesses) and scope of the operations:
+
+\subsubsection{Level 1: Vector Operations}
+Level 1 \ac{BLAS} conserns with scalar and vector operations with computational complexity $O(n)$, where $n$ is the vector length. These operations include vector addition, scalar multiplication, dot products, and norm calculations. Due to their linear computational intensity and high memory-to-computation ratio, Level 1 operations are memory-bound and exhibit poor cache utilization. Examples include \texttt{AXPY} (scaled vector addition) (\ref{eq:axpy}), \texttt{DOT} (dot product), and \texttt{NRM2} (Euclidean norm).
+
+\begin{equation}
+    y \leftarrow \alpha x + y \quad
+\label{eq:axpy}
+\end{equation}
+
+\subsubsection{Level 2: Matrix-Vector Operations}
+Level 2 \ac{BLAS} optimizes matrix-vector operations with computational complexity $O(n^2)$, including matrix-vector products, rank-one updates, and triangular system solves. These operations have moderate computational intensity and remain memory-bound on most modern architectures. Common Level 2 operations include \texttt{GEMV} (general matrix-vector multiply) (\ref{eq:gemv}) and \texttt{GER} (general rank-one update).
+
+\begin{equation}
+    y \leftarrow \alpha A x + \beta y
+\label{eq:gemv}
+\end{equation}
+
+\subsubsection{Level 3: Matrix-Matrix Operations}
+Level 3 \ac{BLAS} covers matrix-matrix operations with computational complexity $O(n^3)$, such as matrix multiplication and triangular solves. These operations exhibit high computational intensity and can achieve efficient cache reuse through careful data blocking and tiling strategies. Level 3 operations are typically compute-bound on modern hardware, making them suitable targets for optimization and parallelization. The \ac{GEMM} (\ref{eq:gemm}) operation is the cornerstone of Level 3 \ac{BLAS}.
+
+\begin{equation}
+    C \leftarrow \alpha A B + \beta C
+\label{eq:gemm}
+\end{equation}
+
+
+Efficient implementations of \ac{BLAS}, such as ATLAS, Open\ac{BLAS}, and Intel MKL, are critical for achieving high performance in scientific computing and machine learning applications \cite{goto2008anatomy}. In the context of tensor contractions, \ac{BLAS} operations, particularly Level 3 \ac{GEMM}, serve as the primary computational kernel when contractions are transformed into matrix multiplications.
+
