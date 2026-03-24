@@ -94,3 +94,12 @@ Level 3 \ac{BLAS} covers matrix-matrix operations with computational complexity 
 
 Efficient implementations of \ac{BLAS}, such as ATLAS, Open\ac{BLAS}, and Intel MKL, are critical for achieving high performance in scientific computing and machine learning applications \cite{goto2008anatomy}. In the context of tensor contractions, \ac{BLAS} operations, particularly Level 3 \ac{GEMM}, serve as the primary computational kernel when contractions are transformed into matrix multiplications.
 
+\section{Problem Formulation and Challenges}
+
+Ultimately, the goal of contraction is to compute a final tensor by successively contracting pairs of tensors along shared indices. This process involves three key components: the contraction order, which determines the sequence in which tensor pairs are combined; the intermediate tensor shapes, which define the sizes and dimensionalities of tensors generated during the contraction; and the tensor layout and permutation, which determine how tensor indices are arranged in memory and therefore how efficiently operations can be executed.
+
+While contraction ordering has been extensively studied, the challenges associated with intermediate tensor shapes and tensor layouts remain significant and often underexplored. In particular, tensor permutations play a crucial role in enabling efficient computation. High-performance implementations typically rely on transforming tensor contractions into matrix multiplications via reshaping and permutation, a technique known as Tensor-Tensor Generalized Multiplication (TTGT) \cite{DBLP:journals/corr/SpringerB16}.
+
+However, these permutations introduce additional memory movement, which can be costly. In many cases, tensors are repeatedly permuted and reshaped throughout the contraction sequence. This leads to increased memory bandwidth usage, poor cache locality, and higher peak memory consumption due to the creation of intermediate copies. These effects collectively degrade performance and can become a dominant bottleneck in large-scale computations.
+
+Furthermore, existing approaches typically treat permutations as local operations required to enable individual contractions. This local perspective ignores the global structure of the contraction sequence and can result in redundant or suboptimal data transformations that accumulate over the course of execution \cite{brandejs2026tensor}.
