@@ -1,0 +1,12 @@
+% !TeX root = ../main.tex
+% Add the above to each chapter to make compiling the PDF easier in some editors.
+
+\chapter{Related Work}\label{chapter:related_work}
+
+% The dominant paradigm in tensor network optimization is \textit{pre-contraction path optimization}, where the contraction sequence is determined prior to execution. Techniques such as those implemented in \texttt{opt\_einsum} \cite{Smith2018} and hyper-optimization methods \cite{gray2021hyper} have demonstrated significant improvements in computational efficiency by minimizing \ac{FLOPS} or intermediate tensor sizes.
+
+% However, these methods exhibit several limitations. First, they primarily optimize contraction order, with only limited consideration of tensor layout and memory access patterns. Second, the cost of tensor permutations is often ignored or assumed to be negligible, despite the fact that memory movement can dominate execution time on modern architectures. Third, optimization is typically performed locally at each contraction step, rather than globally across the entire contraction pipeline. As a result, even an optimal contraction path may still incur significant overhead due to inefficient data movement and suboptimal tensor layouts.
+
+
+% \section{Limitations of Related Work}
+
