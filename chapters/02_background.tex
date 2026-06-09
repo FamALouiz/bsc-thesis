@@ -95,3 +95,44 @@ Beyond blocking and packing, \texttt{\ac{TCCG}} implements an adaptive blocking 
 It is important to emphasize that \texttt{\ac{TCCG}} is not just treated as a black-box library, but integrated into the overall implementation. Its performance model is based on the same principles discussed earlier in this chapter: increasing arithmetic intensity, maximizing cache reuse, and exposing parallelism through block-level decomposition. When tensor contractions are mapped to matrix-matrix multiplications, \texttt{\ac{TCCG}} provides the low-level kernel that performs these multiplications efficiently, making the overall tensor contraction implementation practical for large-scale problems.
 
 \section{High-performance Tensor Contraction Implementations}
+
+The main tensor transposition engine used in this work is the \ac{HPTT} library~\cite{springer2017hptt}. \ac{HPTT} addresses a data-movement-centric bottleneck that is ubiquitous in tensor-based codes. While a single \ac{GEMM} call can be made very fast, the full contraction pipeline often requires rearranging tensor data, and inefficient transpositions can dominate runtime if not handled carefully.
+
+\ac{HPTT} implements multidimensional, out-of-place tensor transpositions using the same high-performance principles introduced earlier for matrix multiplication: blocking, explicit vectorization, a small hand-tuned micro-kernel, and parallelization. Concretely, \ac{HPTT} decomposes any higher-order permutation into a nest of loops surrounding a micro-kernel that performs a small, cache-resident element reordering. This decomposition has three practical advantages: (1) the micro-kernel can be hand-vectorized for the target instruction set (e.g., AVX, NEON), (2) blocking at multiple levels improves cache reuse and reduces off-chip bandwidth requirements, and (3) the loop nest exposes both data- and task-level parallelism for multicore execution.
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.8\textwidth]{figures/hptt_equation.png}
+    \caption{Illustration of \ac{HPTT}'s tensor transposition semantics and permutation notation (image source: springer13/hptt).}\label{fig:hptt_equation}
+\end{figure}
+
+An important engineering feature of \ac{HPTT} is its optional autotuning framework. At plan creation time, the library can either estimate good implementation parameters from a performance model (fast) or explore a search space of loop orders, blocking factors, and parallelization strategies (measure/patient modes) to find the best-performing schedule for the current tensor shape and hardware. This behavior is analogous to FFTW's planner~\cite{frigo2005fftw} and makes \ac{HPTT} robust in applications where tensor sizes and permutations are only known at runtime.
+
+\ac{HPTT} also supports explicit matrix/tensor packing and specializes micro-kernels to align with cache line sizes and vector register widths, thereby minimizing irregular memory accesses and enabling streaming consumption of input data. The library exposes simple C, C++, and Python interfaces for creating a transposition plan (with or without autotuning) and executing it, for example see Figure~\ref{fig:hptt_example}.
+
+\begin{figure}[ht]
+    \begin{lstlisting}[language=C++]
+    #include <hptt.h>
+
+    // allocate tensors
+    float A* = ...
+    float B* = ...
+
+    // specify permutation and size
+    int dim = 6;
+    int perm[dim] = {5,2,0,4,1,3};
+    int size[dim] = {48,28,48,28,28};
+
+    // create a plan (shared_ptr)
+    auto plan = hptt::create_plan( perm, dim, 
+                                alpha, A, size, NULL, 
+                                beta,  B, NULL, 
+                                hptt::ESTIMATE, numThreads);
+
+    // execute the transposition
+    plan->execute();
+    \end{lstlisting}  
+    \caption{Example usage of \ac{HPTT}'s C++ interface from the library's documentation.}\label{fig:hptt_example}
+\end{figure}
+
+In practice, integrating \ac{HPTT} as the transposition layer in a tensor contraction pipeline significantly reduces the overall runtime, because the cost of rearranging tensor data becomes comparable, if not superior, to the cost of the high-performance \ac{GEMM} kernels if not optimized.
