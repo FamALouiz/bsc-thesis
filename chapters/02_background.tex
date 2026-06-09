@@ -80,7 +80,18 @@ Level 3 \ac{BLAS} covers matrix-matrix operations with computational complexity 
 
 Efficient implementations of \ac{BLAS}, such as ATLAS, Open\ac{BLAS}, and Intel MKL, are critical for achieving high performance in scientific computing and machine learning applications~\cite{goto2008anatomy}. In the context of tensor contractions, \ac{BLAS} operations, particularly Level 3 \ac{GEMM}, serve as the primary computational kernel when contractions are transformed into matrix multiplications.
 
-
 \section{High-performance Matrix-Matrix Multiplication Implementations}
+
+The work presented uses the \texttt{\ac{TCCG}}~\cite{tccg2016a} library as its high-performance matrix-matrix multiplication engine. \texttt{\ac{TCCG}} is designed specifically to deliver efficient \ac{GEMM} kernels across modern CPU architectures by combining the algorithmic principles of blocked matrix multiplication with architecture-aware microkernel generation.
+
+At the highest level, \texttt{\ac{TCCG}} decomposes the computation into a hierarchy of tiles. The input matrices are partitioned into blocks that fit into the different levels of the processor cache, which reduces main-memory traffic and improves data reuse. The blocked structure also enables the library to expose parallelism naturally: independent blocks can be computed concurrently across CPU cores, while each core operates on cache-resident panels of the matrices.
+
+A central feature of \texttt{\ac{TCCG}} is its use of a carefully tuned microkernel. The microkernel computes a small block of the result matrix using registers and vector instructions, often with explicit loop unrolling and packing of input matrix panels. This organization minimizes the number of memory accesses per floating-point operation, which is essential for reaching high fractions of peak performance on modern processors.
+
+The library also supports explicit matrix packing, where subblocks of the input matrices are copied into contiguous, cache-friendly buffers before the inner product is evaluated. Packing eliminates irregular memory access patterns that occur in standard row-major or column-major layouts, and it allows the microkernel to consume data in a streaming fashion. In \texttt{\ac{TCCG}}, the packed panels are chosen to align with the target architecture's cache line size and vector width.
+
+Beyond blocking and packing, \texttt{\ac{TCCG}} implements an adaptive blocking strategy for common matrix shapes. For square matrices, the blocking factors are selected to balance between the L1 / L2 cache capacities and the cost of data movement. For rectangular matrices, the library selects block sizes to maintain high utilization of the inner microkernel while avoiding excessive padding or wasted computation.
+
+It is important to emphasize that \texttt{\ac{TCCG}} is not just treated as a black-box library, but integrated into the overall implementation. Its performance model is based on the same principles discussed earlier in this chapter: increasing arithmetic intensity, maximizing cache reuse, and exposing parallelism through block-level decomposition. When tensor contractions are mapped to matrix-matrix multiplications, \texttt{\ac{TCCG}} provides the low-level kernel that performs these multiplications efficiently, making the overall tensor contraction implementation practical for large-scale problems.
 
 \section{High-performance Tensor Contraction Implementations}
