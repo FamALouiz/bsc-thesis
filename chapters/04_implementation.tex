@@ -1,0 +1,69 @@
+% !TeX root = ../main.tex
+% Add the above to each chapter to make compiling the PDF easier in some editors.
+
+\chapter{Implementation}\label{chapter:implementation}
+
+The purpose of this chapter is to outline the implementational details of the library developed, the tensor permutation discovery algorithm alongside the required datastructues, and the end-to-end pipeline used for compiling the operations. We provide the reader with a top-down description of our approach, stepping down one abstraction at a time, i.e.\ from the library's interface to the core of our algorithm to how it is integrated into a state-of-the-art pipeline.
+
+\section{Interface}
+
+The library exposes a concise Python interface, see Figure~\ref{fig:istrategy_interface}, for permutation strategies that is independent of the concrete optimization algorithm. This interface is defined as a runtime-checkable protocol and makes it possible to register and interchange different strategy implementations without changing the surrounding compilation pipeline.
+
+\begin{figure}[ht]
+    \centering
+    \begin{lstlisting}[language=python]
+    @runtime_checkable
+    class IStrategy(Protocol):
+        @staticmethod
+        def find_optimal_permutation(
+            network: TensorNetwork, contraction_path: ContractionPath
+        ) -> list[TensorOperation]:
+            ...
+    \end{lstlisting}
+    \caption{Outgoing python interface for permutation discovery strategies.}
+    \label{fig:istrategy_interface}
+\end{figure}
+
+
+This interface is the library's public contract for strategy implementations. The \texttt{find\_optimal\_permutation} method is responsible for producing an ordered sequence of tensor operations that realize an optimized contraction plan.
+
+The strategy implementation receives two explicit inputs: a tensor network and a contraction path. The tensor network is represented by the \texttt{TensorNetwork} dataclass, see Figure~\ref{fig:tensor_network_dataclass}, which contains the initial tensor collection, the desired output indices, and a size map. The contraction path is a sequence of index pairs that specifies the pairwise contraction order. Internally, the tensor network manages its tensors through a private \texttt{\_Tensorpool} abstraction, enabling dynamic reuse of tensor objects across contraction steps instead of allocating repeated tensor storage. This decision is important for performance, and it will be highlighted again in later sections when discussing the algorithm's datastructures and execution behavior. Finally, a strategy's return type is not a raw permutation matrix or a list of index orders, but an explicit intermediate representation in the form of \texttt{TensorOperation} objects.
+
+
+\begin{figure}[ht]
+    \centering
+    \begin{lstlisting}[language=python]
+    @dataclass(init=False)
+    class TensorNetwork:
+        tensors: _TensorPool
+        output_indices: list[int]
+        size_dict: dict[int, int]
+    \end{lstlisting}
+    \caption{Snippet of the tensor network dataclass.}
+    \label{fig:tensor_network_dataclass}
+\end{figure}
+
+The intermediate representation, see Figure~\ref{fig:intermediate_representation_objects}, decouples permutation planning from execution. It allows the optimizer to express both layout transformations and contraction steps as first-class operations that can be later compiled, scheduled, or simulated by the pipeline.
+
+\begin{figure}[ht]
+    \centering
+    \begin{lstlisting}[language=python]
+    class TensorOperation(ABC):
+        @abstractmethod
+        def apply(
+            self, *inputs: TensorOperationResult, **kwargs: dict[str, Any]
+        ) -> TensorOperationResult:
+
+    class TensorPermutationOperation(TensorOperation):
+        ...
+
+    class TensorContractionOperation(TensorOperation):
+        ...
+    \end{lstlisting}
+    \caption{Snippets of the intermeidate representation objects.}
+    \label{fig:intermediate_representation_objects}
+\end{figure}
+
+Additionally, strategies expose a \texttt{get\_peak\_memory} method for a second aspect of the interface: cost estimation. It computes the maximum memory footprint that a given path and its permutations will require during execution. Similarly, \texttt{get\_total\_memory} reports the total memory movement associated with the same plan. These metrics are useful for comparing candidate strategies and selecting one that balances performance and resource usage.
+
+By defining both permutation planning and memory estimation in the same interface, the library provides a coherent abstraction for strategy selection. Specific algorithms, such as the greedy strategy developed in this work, implement this protocol and are therefore interchangeable with alternative strategies that may be added in the future.
