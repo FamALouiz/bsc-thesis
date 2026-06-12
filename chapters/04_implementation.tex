@@ -67,3 +67,22 @@ The intermediate representation, see Figure~\ref{fig:intermediate_representation
 Additionally, strategies expose a \texttt{get\_peak\_memory} method for a second aspect of the interface: cost estimation. It computes the maximum memory footprint that a given path and its permutations will require during execution. Similarly, \texttt{get\_total\_memory} reports the total memory movement associated with the same plan. These metrics are useful for comparing candidate strategies and selecting one that balances performance and resource usage.
 
 By defining both permutation planning and memory estimation in the same interface, the library provides a coherent abstraction for strategy selection. Specific algorithms, such as the greedy strategy developed in this work, implement this protocol and are therefore interchangeable with alternative strategies that may be added in the future.
+
+\section{Preparation and Peripherals}
+
+\subsection{Persistent Contraction Path}
+
+Before the permutation strategy can be applied, the contraction path must be prepared in a form that preserves the complete tensor network history. The library uses a dedicated \texttt{PersistentContractionPath} abstraction for this purpose. This class stores the original contraction path together with a history of tensor network states, and enforces that the history contains exactly one entry for the initial state plus one additional entry for each contraction step.
+
+The persistent path is inspired by persistent data structures such as segment trees, where later versions share unchanged portions of earlier versions through structural sharing. In this implementation, the contraction history is built by simulating each contraction in order and appending only the changed state to the history list while preserving references to unchanged tensors wherever possible. This means that the algorithm can jump directly to any intermediate step without replaying the entire contraction sequence, and that the storage cost grows only with the number of actual changes rather than with a naive full copy of every intermediate network.
+
+The \texttt{from\_contraction\_path} factory method is the entry point for preparing a contraction path. It takes the original tensor network and the proposed path, then constructs the sequence of states needed by the permutation strategy. The history is kept immutable from the strategy's perspective through the use of deep copies when states are retrieved, ensuring that later operations cannot accidentally mutate earlier steps. As a result, both correctness and reproducibility are preserved when the optimizer analyzes different nodes in the contraction tree.
+
+\begin{figure}[ht]
+    \centering
+    \fbox{\parbox{0.8\linewidth}{Placeholder for an illustration of the persistent contraction path and state history.}} % TODO: Add Image here
+    \caption{Illustration of the persistent contraction path and state history.}
+    \label{fig:persistent_contraction_path}
+\end{figure}
+
+This persistent representation is therefore not only a convenience feature, but a core preparatory step for the algorithm. It is essential for the strategy's ability to inspect the tensor network at arbitrary points in the contraction sequence without recomputing the entire tree, and it ensures that the memory footprint of the preparation phase remains proportional to the number of contracted states rather than to the size of each complete tensor network copy.
