@@ -154,3 +154,40 @@ When the desired free-index order is interleaved and does not follow the $L^* R^
 Finding the partition that maximizes the number of representable indices is done by computing, for each possible cutoff point, the length of the longest subsequence that follows the $L^* R^*$ pattern. The function precomputes prefix counts of left indices and suffix counts of right indices, then iterates over all possible switch points to find the one that maximizes the combined count, in essence a classic dynamic programming problem.
 
 Once the best partition is found, all indices not included in the representable portion are added to the sliced set. These sliced indices are then removed from consideration in the subsequent layout computation, effectively reducing the problem to a smaller subset of indices that can be arranged without interleaving.
+
+\subsection{Recursive Layout Planning}
+
+With peak tensors identified and their target layouts computed, the strategy must propagate compatible layouts throughout the contraction tree, ensuring that all non-peak tensors receive permutations that are compatible with their parent's expectations. 
+
+This propagation starts from the root of the contraction tree and recursively descends to both children. At each internal node, the optimal layouts are computed for the left and right input tensors based on the node's position in the tree and the requirements of its siblings.
+
+\subsubsection{Base Case and Termination}
+
+The planner first checks whether the current node represents a valid internal contraction step. If any of the left child, right child, or contraction step is missing or null, the planning returns immediately without further processing. This handles leaf nodes and degenerate cases where contraction information is incomplete.
+
+\subsubsection{Extracting Contraction Structure}
+
+For valid internal nodes, the planner retrieves the left input tensor, right input tensor, and result tensor. It then partitions the indices of these tensors into contracted and free sets. Contracted indices are those that appear in both input tensors and are eliminated by the contraction. Free indices are those that remain in the output. The planner next determines the desired order for free indices. If the current node's desired layout has been precomputed (e.g., because the node is in the peak set or because a parent has already specified requirements), the planner extracts the free indices from that layout, preserving their relative order. Otherwise, it computes a default order by sorting free indices by size: first the left-free indices sorted by size, then the right-free indices sorted by size.
+
+\subsubsection{Index Partitioning for Slicing}
+
+The planner determines which free indices (if any) should be treated as sliced. This partitioning is based on whether the desired free-index order follows the $L^* R^*$ pattern. If it does, no slicing is needed. Otherwise, the minimal set of indices required to break the interleaving pattern is identified and marked as sliced.
+
+\subsubsection{Constructing Target Layouts}
+
+With free and contracted indices partitioned into sliced and representable subsets, the planner constructs three target layouts: one for the left input, one for the right input, and one for the result.
+
+For the left input, the layout is: (1) sliced indices from the left, sorted by size, (2) representable free indices from the left, sorted by their position in the desired free order, (3) contracted indices, sorted by size. This ordering is motivated by the observation that sliced indices should appear first to group them contiguously, followed by the representable free indices in the desired order, and finally contracted indices at the end where they can be aligned with the right input.
+
+For the right input, the layout is: (1) contracted indices, sorted by size, (2) sliced indices from the right, sorted by size, (3) representable free indices from the right, sorted by their position in the desired free order. The contracted indices appear first because they must align with the left input's contracted indices for efficient computation. The sliced indices follow, and finally the right-free indices, which will become output free indices.
+
+For the result tensor, the layout is a concatenation of all sliced indices (first the left-sliced, then the right-sliced, both sorted by size), followed by all representable free indices (left representable sorted by desired order, then right representable sorted by desired order). This layout ensures that the output tensor's free indices appear in the desired order while sliced indices are grouped at the beginning.
+
+\subsubsection{Conditional Layout Assignment and Recursion}
+
+Before assigning these target layouts to the input tensors, children nodes need to be checked incase they're frozen (marked as a peak). If a node is not frozen, its layout gets assigned. Otherwise, the assignment is skipped, preserving the node's precomputed layout. Similarly, if the current node itself is not frozen, its computed result layout is assigned to the result tensor. If it is frozen, the assignment is skipped.
+
+After layout assignment, this process is recursively called on both child nodes, continuing the tree traversal and propagating layouts downward through the tree.
+
+The order of operations (assigning layouts to children before recursing, and recursing to both children before returning) ensures that layouts are computed in a top-down manner. This means parent layouts inform child layouts, and all siblings within a subtree respect the constraints imposed by their parent.
+
