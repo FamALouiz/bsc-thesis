@@ -191,3 +191,38 @@ After layout assignment, this process is recursively called on both child nodes,
 
 The order of operations (assigning layouts to children before recursing, and recursing to both children before returning) ensures that layouts are computed in a top-down manner. This means parent layouts inform child layouts, and all siblings within a subtree respect the constraints imposed by their parent.
 
+\subsection{Layout Assignment and Permutation Computation}
+
+Once the recursive planning phase has computed a target layout for each tensor in the contraction tree, the strategy must assign these layouts and compute the corresponding permutation operations. 
+
+With each tensor in hand, a permutation vector is computed that transforms the tensor's current index ordering to the target layout. Formally, a permutation vector $\pi$ is found such that $\pi[i]$ indicates the position in the current index list of the index that should appear at position $i$ in the target layout.
+
+\subsection{Algorithmic Complexity}
+
+The time complexity of the greedy strategy can be analyzed as follows. Let $n$ denote the number of initial tensors, $p$ denote the length of the contraction path, $d$ denote the average tensor rank (number of indices), and $r$ denote the number of peak tensors ($r = \min(k, n + p)$).
+
+The peak node identification phase involves computing memory costs for all candidate tensors and sorting them. This is $O((n + p) \log(n + p))$.
+
+The target layout computation phase calls \texttt{\_find\_peak\_target\_layout} for each of the $r$ peak nodes. Each call performs constant-time or $O(d \log d)$ operations (sorting indices). This phase is thus $O(r \cdot d \log d)$.
+
+The recursive planning phase traverses the entire contraction tree (which has $O(n + p)$ nodes) and performs $O(d)$ work per node (sorting indices, partitioning sets). This phase is $O((n + p) \cdot d)$.
+
+The permutation computation phase computes $O(n + p)$ permutations, each requiring $O(d^2)$ work in the worst case (building a permutation vector for a rank-$d$ tensor). This phase is $O((n + p) \cdot d^2)$.
+
+Overall, the algorithm's complexity is $O((n + p) \cdot d^2 + (n + p) \log(n + p))$, which is dominated by the permutation computation phase. For small ranks $d$ (typical in practical tensor networks) and moderate path lengths $p$, this is effectively linear in the problem size.
+
+\subsection{Design Rationales}
+
+The greedy strategy makes several deliberate design choices that reflect a balance between generality, efficiency, and ease of implementation.
+
+\subsubsection{Greedy vs. Optimal}
+
+The strategy is intentionally greedy and not optimal. Finding the globally optimal permutation plan would require solving a constraint satisfaction or optimization problem over the full space of permutations, which is computationally intractable. The greedy approach sacrifices optimality for computational tractability, with the assumption that local optimization around peak tensors yields sufficiently good results in practice.
+
+\subsubsection{Persistent Path Preparation}
+
+The construction of the \texttt{PersistentContractionPath} upfront adds a one-time cost but amortizes the cost of subsequent queries. Without this preparation, every query to an intermediate network state would require replaying the entire contraction sequence, making the algorithm's complexity quadratic or worse. By investing in persistence, the algorithm trades space for time, a worthwhile trade-off for typical problem sizes.
+
+\subsubsection{Slicing as a Fallback}
+
+The use of slicing to handle interleaved index patterns is a design choice that defers the complexity of index reordering to the lower-level execution layer (the \ac{TCCG} generator and \ac{HPTT} primitives). This keeps the permutation strategy implementation relatively simple while allowing the lower layers to employ optimized techniques for slicing when necessary.
