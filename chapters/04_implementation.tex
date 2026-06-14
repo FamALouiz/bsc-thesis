@@ -89,7 +89,7 @@ This persistent representation is therefore not only a convenience feature, but 
 
 \subsection{APIs and ABIs}
 
-The library exposes a dedicated interface module under \texttt{tccg\_interface}, which acts as the bridge between the tensor contraction logic and the low-level \ac{TCCG} and runtime. At the highest level, \texttt{execute\_tccg\_contraction} orchestrates the generation of a TCCG description for a given pair of input tensors, discovers the generated function signature, compiles a \texttt{pybind11} wrapper, and finally loads and executes the resulting shared object.
+The library exposes a dedicated interface module under \texttt{tccg\_interface}, which acts as the bridge between the tensor contraction logic and the low-level \ac{TCCG} and runtime. At the highest level, \texttt{execute\_tccg\_contraction} orchestrates the generation of a \ac{TCCG} description for a given pair of input tensors, discovers the generated function signature, compiles a \texttt{pybind11} wrapper, and finally loads and executes the resulting shared object.
 
 This Python-side API hides the details of the \ac{TCCG} DSL, the C++ code generation pipeline, and the shared library loading semantics behind a single callable contract. The \texttt{tccg\_interface} package is implemented as a layered ABI stack, with \texttt{TCCGGenerator} responsible for producing the \texttt{.tccg} description and invoking the installed \texttt{tccg} executable, \texttt{TCCGDiscoverer} parsing the resulting generated source, \texttt{TCCGPyBind11Compiler} compiling the wrapper into a native module, and \texttt{TCCGRuntime} loading the compiled module dynamically.
 
@@ -103,7 +103,7 @@ This explicit ABI binding ensures that the tensor contraction kernels generated 
 
 The greedy permutation strategy is the core algorithmic contribution of this work. Rather than exhaustively exploring all possible permutation combinations, which is computationally expensive, the strategy employs a greedy prioritization heuristic that focuses computational effort on the tensors where permutation decisions have the greatest impact on overall execution cost.
 
-The fundamental insight underlying the greedy approach is that not all tensor permutations are equally consequential. Within a given contraction tree, the tensors with the largest memory footprints are the ones whose layout decisions dominate the total memory movement cost. By identifying these ``peak'' tensors and computing GEMM-friendly layouts for them without permutation overhead, the strategy can then propagate compatible layouts backward through the contraction tree, ensuring that the peak tensors remain unpermuted while all other tensors receive permutation operations as needed to maintain compatibility.
+The fundamental insight underlying the greedy approach is that not all tensor permutations are equally consequential. Within a given contraction tree, the tensors with the largest memory footprints are the ones whose layout decisions dominate the total memory movement cost. By identifying these ``peak'' tensors and computing \ac{GEMM}-friendly layouts for them without permutation overhead, the strategy can then propagate compatible layouts backward through the contraction tree, ensuring that the peak tensors remain unpermuted while all other tensors receive permutation operations as needed to maintain compatibility.
 
 This section provides a comprehensive description of the algorithm, decomposing it into logical components: the peak node identification phase, the target layout computation phase, the recursive planning phase, and the permutation assignment phase.
 
@@ -173,7 +173,7 @@ Once all candidates are gathered and assigned memory costs, the function sorts t
 
 \subsection{Computing Target Layouts for Peak Tensors}
 
-Once the peak nodes are identified, the strategy must compute a target layout for each peak tensor. That is a desired ordering of its indices that aligns with GEMM-friendly patterns and minimizes the permutation cost to achieve that layout. The target layout for a peak tensor is inferred from its position in the contraction tree and the layouts of its neighboring tensors. The function implements a systematic strategy that considers several cases. Figure~\ref{fig:greedy_peak_layout_pseudocode} shows the core pseudocode for this target-layout computation.
+Once the peak nodes are identified, the strategy must compute a target layout for each peak tensor. That is a desired ordering of its indices that aligns with \ac{GEMM}-friendly patterns and minimizes the permutation cost to achieve that layout. The target layout for a peak tensor is inferred from its position in the contraction tree and the layouts of its neighboring tensors. The function implements a systematic strategy that considers several cases. Figure~\ref{fig:greedy_peak_layout_pseudocode} shows the core pseudocode for this target-layout computation.
 
 \begin{figure}[ht]
     \centering
@@ -216,7 +216,7 @@ If a peak tensor is a leaf (an original input tensor), its target layout is simp
 
 \subsubsection{Root Node Handling}
 
-If a peak tensor is the root of the contraction tree (produced as the final result of all contractions), its target layout is determined by sorting its indices by size. This heuristic is based on the observation that GEMM kernels often benefit from contiguous access patterns over larger strides, and larger strides correspond to larger dimension sizes in typical tensor representations~\cite{blom2025multi}.
+If a peak tensor is the root of the contraction tree (produced as the final result of all contractions), its target layout is determined by sorting its indices by size. This heuristic is based on the observation that \ac{GEMM} kernels often benefit from contiguous access patterns over larger strides, and larger strides correspond to larger dimension sizes in typical tensor representations~\cite{blom2025multi}.
 
 \subsubsection{Internal Node Handling with Ancestor Contraction}
 
