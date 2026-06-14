@@ -391,7 +391,7 @@ The time complexity of the greedy strategy can be analyzed as follows. Let $n$ d
 
 The peak node identification phase involves computing memory costs for all candidate tensors and sorting them. This is $O((n + p) \log(n + p))$.
 
-The target layout computation phase calls \texttt{\_find\_peak\_target\_layout} for each of the $r$ peak nodes. Each call performs constant-time or $O(d \log d)$ operations (sorting indices). This phase is thus $O(r \cdot d \log d)$.
+The target layout computation phase finds the target peak layout for each of the $r$ peak nodes. Each call performs constant-time or $O(d \log d)$ operations (sorting indices). This phase is thus $O(r \cdot d \log d)$.
 
 The recursive planning phase traverses the entire contraction tree (which has $O(n + p)$ nodes) and performs $O(d)$ work per node (sorting indices, partitioning sets). This phase is $O((n + p) \cdot d)$.
 
