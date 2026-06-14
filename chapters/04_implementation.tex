@@ -414,3 +414,22 @@ The construction of the \texttt{PersistentContractionPath} upfront adds a one-ti
 \subsubsection{Slicing as a Fallback}
 
 The use of slicing to handle interleaved index patterns is a design choice that defers the complexity of index reordering to the lower-level execution layer (the \ac{TCCG} generator and \ac{HPTT} primitives). This keeps the permutation strategy implementation relatively simple while allowing the lower layers to employ optimized techniques for slicing when necessary.
+
+\section{The Full Picture}
+
+As figure~\ref{fig:full_pipeline} illustrates, the completed pipeline has three broad segments: input preparation, permutation optimization, and native kernel generation. The user begins by specifying a tensor network and intended contraction path. The network is represented in the \texttt{TensorNetwork} abstraction, which centralizes tensor metadata, index sets, and dimension sizes. 
+
+\begin{figure}[ht]
+    \centering
+    \fbox{\parbox{0.8\linewidth}{Placeholder for the complete end-to-end pipeline diagram from tensor network input to TCCG/C++ compilation and execution.}}
+    \caption{End-to-end pipeline from user tensor network to final compiled execution result.}
+    \label{fig:full_pipeline}
+\end{figure}
+
+The first stage of the pipeline transforms these inputs into an internal, persistent form. The \texttt{PersistentContractionPath} preserves every intermediate state of the contraction sequence, allowing the optimizer to analyze both original tensors and temporary results without recomputing earlier steps. 
+
+The greedy algorithm then analyzes the persistent state. It identifies the largest tensors in memory as the critical ``peaks'', computes \ac{GEMM}-friendly target layouts for them, and propagates compatible layouts across the contraction tree. 
+
+Once the optimizer has produced a sequence of tensor operations, the pipeline compiles them into an execution-ready form. A \ac{TCCG} description is generated for each contracted tensor pair, discovers the generated function signature, emits a \texttt{pybind11} wrapper, and invokes the native C++ compiler. The generated code is linked against \ac{HPTT} and the low-level tensor compute kernels needed for transpose and packing.
+
+At runtime, the compiled module is dynamically loaded and executed. The tensor operations produced by the optimizer are mapped to concrete layout transformations and contraction kernels, and the final tensor result is produced by composing the permuted inputs, contracted intermediates, and the generated native kernels.
