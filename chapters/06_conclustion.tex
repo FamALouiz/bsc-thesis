@@ -1,0 +1,8 @@
+% !TeX root = ../main.tex
+% Add the above to each chapter to make compiling the PDF easier in some editors.
+
+\chapter{Conclusion}\label{chap:conclusion}
+
+This thesis investigated memory-aware tensor network contraction, focusing on reducing unnecessary memory movement through permutation-aware contraction planning. The proposed greedy strategy showed promising theoretical potential by avoiding costly layout transformations, especially for large intermediate tensors. However, the practical evaluation showed only minimal improvements, with results generally remaining close to the baseline and occasionally becoming slightly negative. This gap is mainly due to the strong optimizations already present in state-of-the-art libraries such as \texttt{cotengra}, which combine contraction path search, memory reuse, view-based execution, and low-level implementation optimizations.
+
+Despite the limited practical gains, the results provide a strong foundation for future research. The proposed algorithm performed close to the state-of-the-art baseline without benefiting from the same level of tightly coupled low-level optimization or execution stack. This suggests that the core idea remains valuable, but future work should focus on preserving theoretical savings through the full execution pipeline. A promising direction is the development of a modular tensor network compiler that separates high-level contraction and layout optimization from low-level memory management and kernel generation, allowing new algorithms to benefit from optimized backends without reimplementing the entire stack.
