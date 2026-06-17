@@ -5,7 +5,7 @@
 
 This chapter evaluates the proposed permutation-planning and execution pipeline. We describe the experimental methodology, detail the hardware and software configuration used for the measurements, and present quantitative results for runtime, peak memory usage, and memory movement that compare the baseline and optimized strategies.
 
-\section{Setup}
+\section{Setup}\label{sec:setup}
 
 All experiments reported in this chapter were executed on a single central machine dedicated to benchmarking and performance validation. The machine is built around a 12th-generation Intel Core i5 processor in specific the 12th Gen Intel(R) Core(TM) i5-12450H, and was configured to expose the AVX2 instruction set. The system used 16~GB of main memory for every run reported here. Kernel generation and compilation were performed using the GNU compiler version 11.4.0, and the specific \ac{TCCG} instance as pf v0.1.1. Experiments targeted double precision arithmetic and relied on a conservative generator setting of \texttt{maxImplementations = 1} to ensure stable and comparable kernels across runs.
 
@@ -26,3 +26,29 @@ These results support the claim that treating layout for the largest intermediat
 	\label{fig:ignore_largest_5200}
 \end{figure}
 
+\section{Theoretical Analysis}
+
+To evaluate the algorithm in a setting where random tensor allocations and permutation costs do not introduce variance, we performed a pure theoretical analysis of the greedy permutation strategy against established baselines. The central question was whether the empirical savings observed in the initial experiment (approximately 45\% on average for the top-1 frozen tensor) would be consistent across a wider range of tensor network topologies and sizes. To answer this, we generated contraction paths using the state-of-the-art library \texttt{cotengra} for a large corpus of synthetic tensor networks, then applied our greedy permutation strategy (with varying values of $k$, the number of frozen tensors) to the same paths and computed the theoretical peak memory consumption that would result.
+
+The test corpus comprised 18,180 distinct tensor networks with topologies ranging from three to seven tensors. Each network was randomly generated with independent choices for tensor rank, input dimension sizes, contraction structure, and output index sets. This diversity ensures that the theoretical analysis covers a representative space of practical tensor contraction problems. Because the theoretical analysis tests only the permutation and layout choices and not the actual memory movement of large numerical arrays, we could evaluate this large corpus efficiently without incurring the cost of full experimental runs. Regardless, the decision to limit network sizes to the 3--7 tensor range was still made deliberately since the same sample set will be used to validate the non-theoretical memory movement advantages and disadvantages of the greedy strategy in subsequent sections.
+
+Figure~\ref{fig:theoretical_comparison_absolute} shows the absolute theoretical peak memory for each of the 18,180 networks, grouped by the sizes of the tensor netwokrs. The vertical axis represents the theoretical peak (in MBs). As $k$ increases, more tensors are frozen, the bars shifts downward, reflecting a consistent reduction in the predicted memory footprint. The bars with lower values indicate that the greedy strategy with even modest $k$ values (e.g., $k=1$ or $k=2$) produces theoretical savings. Notably the savings align with the initial experiment's finding. Freezing only the single largest intermediate yields theoretical improvements consistent with the 45\% reduction observed empirically, validating the hypothesis that the algorithm's layout decisions transfer predictably to real executions. Finally, it is important to note that the baseline, although independent of $k$, was ran multiple times to ensure data consistency.
+
+Figure~\ref{fig:theoretical_improvement_percentage} quantifies these savings as percentage improvements over the baseline. The bar chart shows the average and distribution of relative improvement for each value of $k$. Across the corpus, freezing the top-1 tensor yields an average theoretical peak memory reduction of approximately 30\%; increasing to top-3 frozen tensors boosts the average improvement to around 42\%. These numbers indicate that even conservative values of $k$ yield significant theoretical benefits.
+
+The consistency between the theoretical predictions (Figures~\ref{fig:theoretical_comparison_absolute} and~\ref{fig:theoretical_improvement_percentage}) and the empirical observations from the initial experiment (Figure~\ref{fig:ignore_largest_5200}) provides confidence that the greedy algorithm's layout decisions are well-founded and that its benefits are robust across varying network sizes and topologies. The remainder of this chapter presents actual memory movement data for selected networks from the 3--7 tensor range, to attempt validate that the theoretical savings translate to practical performance gains on the central machine described in Section~\ref{sec:setup}.
+
+
+\begin{figure}[ht]
+	\centering
+	\includegraphics[width=0.9\textwidth]{figures/18180_theoretical_peak_memory_comparison.png}
+	\caption{Absolute theoretical peak memory of the baseline (\texttt{cotengra}) against the proposed greedy algorithm.}
+	\label{fig:theoretical_comparison_absolute}
+\end{figure}
+
+\begin{figure}[ht]
+	\centering
+	\includegraphics[width=0.9\textwidth]{figures/theoretical_peak_memory_improvement.png}
+	\caption{Percentage improvement in theoretical peak memory from using the greedy strategy over the baseline strategy (\texttt{cotengra}).}
+	\label{fig:theoretical_improvement_percentage}
+\end{figure}
