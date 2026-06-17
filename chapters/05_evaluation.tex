@@ -2,3 +2,12 @@
 % Add the above to each chapter to make compiling the PDF easier in some editors.
 
 \chapter{Evaluation}\label{chapter:evaluation}
+
+This chapter evaluates the proposed permutation-planning and execution pipeline. We describe the experimental methodology, detail the hardware and software configuration used for the measurements, and present quantitative results for runtime, peak memory usage, and memory movement that compare the baseline and optimized strategies.
+
+\section{Setup}
+
+All experiments reported in this chapter were executed on a single central machine dedicated to benchmarking and performance validation. The machine is built around a 12th-generation Intel Core i5 processor in specific the 12th Gen Intel(R) Core(TM) i5-12450H, and was configured to expose the AVX2 instruction set. The system used 16~GB of main memory for every run reported here. Kernel generation and compilation were performed using the GNU compiler version 11.4.0, and the specific \ac{TCCG} instance as pf v0.1.1. Experiments targeted double precision arithmetic and relied on a conservative generator setting of \texttt{maxImplementations = 1} to ensure stable and comparable kernels across runs.
+
+Parallel execution was driven by the GNU OpenMP runtime and controlled through the environment affinity hints stored alongside the generator configuration \newline\texttt{GOMP\_CPU\_AFFINITY=0-12}. On this machine the measured core topology presented eight logical cores and twelve virtual cores; accordingly the affinity and thread settings were explicitly adjusted to make the runtime parallelism unambiguous. To validate portability and to check for operating-system-level effects, the same experiments were also executed on Windows Subsystem for Linux 2 (WSL2) running Ubuntu 22.04.
+
