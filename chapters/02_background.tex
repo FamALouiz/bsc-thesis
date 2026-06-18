@@ -80,9 +80,9 @@ Level 3 \ac{BLAS} covers matrix-matrix operations with computational complexity 
 
 Efficient implementations of \ac{BLAS}, such as ATLAS, Open\ac{BLAS}, and Intel MKL, are critical for achieving high performance in scientific computing and machine learning applications~\cite{goto2008anatomy}. In the context of tensor contractions, \ac{BLAS} operations, particularly Level 3 \ac{GEMM}, serve as the primary computational kernel when contractions are transformed into matrix multiplications.
 
-\section{High-performance Matrix-Matrix Multiplication Implementations}
+\section{High-performance Tensor Contraction Implementations}
 
-The work presented uses the \texttt{\ac{TCCG}}~\cite{tccg2016a} library as its high-performance matrix-matrix multiplication engine. \texttt{\ac{TCCG}} is designed specifically to deliver efficient \ac{GEMM} kernels across modern CPU architectures by combining the algorithmic principles of blocked matrix multiplication with architecture-aware microkernel generation.
+The work presented uses the \texttt{\ac{TCCG}}~\cite{tccg2016a} library as its high-performance tensor contraction engine. \texttt{\ac{TCCG}} is designed specifically to deliver efficient \ac{GEMM} kernels across modern CPU architectures by combining the algorithmic principles of blocked matrix multiplication with architecture-aware microkernel generation.
 
 At the highest level, \texttt{\ac{TCCG}} decomposes the computation into a hierarchy of tiles. The input matrices are partitioned into blocks that fit into the different levels of the processor cache, which reduces main-memory traffic and improves data reuse. The blocked structure also enables the library to expose parallelism naturally: independent blocks can be computed concurrently across CPU cores, while each core operates on cache-resident panels of the matrices.
 
@@ -94,9 +94,9 @@ Beyond blocking and packing, \texttt{\ac{TCCG}} implements an adaptive blocking 
 
 It is important to emphasize that \texttt{\ac{TCCG}} is not just treated as a black-box library, but integrated into the overall implementation. Its performance model is based on the same principles discussed earlier in this chapter: increasing arithmetic intensity, maximizing cache reuse, and exposing parallelism through block-level decomposition. When tensor contractions are mapped to matrix-matrix multiplications, \texttt{\ac{TCCG}} provides the low-level kernel that performs these multiplications efficiently, making the overall tensor contraction implementation practical for large-scale problems.
 
-\section{High-performance Tensor Contraction Implementations}
+\section{High-performance Tensor Transposition Implementations}
 
-The main tensor transposition engine used in this work is the \ac{HPTT} library~\cite{springer2017hptt}. \ac{HPTT} addresses a data-movement-centric bottleneck that is ubiquitous in tensor-based codes. While a single \ac{GEMM} call can be made very fast, the full contraction pipeline often requires rearranging tensor data, and inefficient transpositions can dominate runtime if not handled carefully.
+The main tensor transposition engine used in this work is the \ac{HPTT} library~\cite{springer2017hptt}.\ \ac{HPTT} addresses a data-movement-centric bottleneck that is ubiquitous in tensor-based codes. While a single \ac{GEMM} call can be made very fast, the full contraction pipeline often requires rearranging tensor data, and inefficient transpositions can dominate runtime if not handled carefully.
 
 \ac{HPTT} implements multidimensional, out-of-place tensor transpositions using the same high-performance principles introduced earlier for matrix multiplication: blocking, explicit vectorization, a small hand-tuned micro-kernel, and parallelization. Concretely, \ac{HPTT} decomposes any higher-order permutation into a nest of loops surrounding a micro-kernel that performs a small, cache-resident element reordering. This decomposition has three practical advantages: (1) the micro-kernel can be hand-vectorized for the target instruction set (e.g., AVX, NEON), (2) blocking at multiple levels improves cache reuse and reduces off-chip bandwidth requirements, and (3) the loop nest exposes both data- and task-level parallelism for multicore execution.
 
