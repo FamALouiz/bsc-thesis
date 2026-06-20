@@ -57,7 +57,7 @@ The consistency between the theoretical predictions (Figures~\ref{fig:theoretica
 
 After establishing the theoretical memory behaviour of the greedy permutation strategy, we performed a practical analysis to determine whether these theoretical savings translate into measurable improvements during actual execution. This distinction is important because the theoretical model only accounts for tensor sizes, intermediate tensors, and planned memory movement. In contrast, a practical execution measures the full behaviour of the running program, including allocator overhead, runtime buffers, Python and library metadata, cached allocations, temporary arrays, and any memory retained by the operating system. Therefore, the practical results should not be expected to match the theoretical estimates exactly.
 
-Figure~\ref{fig:practical_peak_memory_comparison} shows the measured peak memory for the baseline and greedy strategies across tensor network sizes from three to seven tensors and for different values of $k$. Unlike the theoretical results, where the greedy strategy showed clear and consistent reductions in peak memory, the practical measurements show only minor differences between the two strategies. In most cases, the measured peak memory of the greedy strategy is almost identical to the baseline. The observed improvements are therefore minimal, generally remaining within a very small range. For peak memory specifically, the improvement is close to zero for smaller networks and becomes slightly negative for the largest tested networks, as shown in Figure~\ref{fig:practical_peak_memory_improvement}. This indicates that, in the practical implementation, the greedy strategy does not consistently reduce the resident memory footprint despite its theoretical advantage.
+Figure~\ref{fig:practical_peak_memory_comparison} shows the measured peak memory for the state-of-the-art baseline and greedy strategies across tensor network sizes from three to seven tensors and for different values of $k$. Unlike the theoretical results, where the greedy strategy showed clear and consistent reductions in peak memory, the practical measurements show only minor differences between the two strategies. In most cases, the measured peak memory of the greedy strategy is almost identical to the baseline. The observed improvements are therefore minimal, generally remaining within a very small range. For peak memory specifically, the improvement is close to zero for smaller networks and becomes slightly negative for the largest tested networks, as shown in Figure~\ref{fig:practical_peak_memory_improvement}. This indicates that, in the practical implementation, the greedy strategy does not consistently reduce the resident memory footprint despite its theoretical advantage.
 
 \begin{figure}[ht]
     \centering
@@ -86,9 +86,55 @@ Figure~\ref{fig:practical_total_memory_improvement} further illustrates this poi
     \label{fig:practical_total_memory_improvement}
 \end{figure}
 
-It is also important to note that the measured practical peak memory is generally larger than the theoretical peak memory. This is expected because the practical measurement uses the resident set size (RSS) of the process. RSS captures the memory currently resident in physical memory for the whole program, not only the tensor payloads considered by the theoretical model. As a result, it includes memory used by the Python interpreter, numerical libraries, temporary buffers, allocator bookkeeping, runtime metadata, and cached memory that may not be immediately returned to the operating system. The theoretical analysis intentionally ignores these effects in order to isolate the memory behaviour of the contraction plan itself. Therefore, the practical results should be interpreted as an end-to-end system measurement, while the theoretical results should be interpreted as an idealized estimate of tensor-level memory behaviour.
+To further evaluate whether the greedy permutation strategy produces measurable
+memory savings in practice, we repeated the practical experiment on the same dataset
+used in the previous subsection. In contrast to the earlier comparison, where the
+observed gains were minimal, this experiment compares the greedy strategy against a
+simpler baseline strategy that does not attempt to preserve the layout of large
+intermediate tensors. This baseline therefore represents a more direct reference point
+for measuring the practical benefit of the proposed memory-aware layout planning since it
+builds on top of the proposed stack.
 
-Despite the limited practical improvement, the results remain encouraging. The proposed algorithm and library do not yet include the full set of coupled optimizations used by mature tensor contraction frameworks, yet they still perform close to the state-of-the-art baseline in most practical cases. This is significant because the baseline benefits from years of coupled optimization across path finding, contraction execution, memory handling, and low-level implementation. Matching it closely while focusing mainly on permutation and layout optimization suggests that the proposed approach is a promising foundation. With stronger integration into the execution layer, especially through memory reuse and compiler-level optimization, the theoretical advantages of the algorithm are likely to translate more directly into practical gains.
+Figure~\ref{fig:peak_memory_comparison_against_dumb} shows the measured peak
+memory usage for tensor networks of size three to seven. For each network size, the
+baseline memory remains almost unchanged across the different values of $k$, while
+the greedy strategy consistently reduces the measured peak memory. The absolute
+difference becomes more visible as the tensor network size increases. This behavior is
+also reflected in Figure~\ref{fig:peak_memory_improvement_against_dumb}, which
+reports the relative improvement of the greedy strategy over the baseline. Although the
+improvement is small for networks of size three and four, it grows steadily for larger
+networks, reaching its largest values for networks of size seven.
+
+However, the practical improvements remain substantially smaller than the
+$30$--$40\%$ reductions predicted by the theoretical memory model. This discrepancy
+is expected since as mentioned before the theoretical analysis isolates the memory contribution of tensor
+intermediates and permutation buffers, whereas the practical measurement records the
+peak memory of the entire program. As a result, the measured peak includes additional
+sources of memory consumption such as the Python runtime, library overhead,
+metadata, allocator behaviour, generated kernels, and other temporary buffers that are
+not directly affected by the greedy tensor-layout strategy. These fixed and
+implementation-dependent costs dilute the relative improvement that can be observed
+at the process level.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figures/peak_memory_comparison_against_dumb.png}
+    \caption{Measured peak memory usage of the naive baseline and greedy strategy for
+    different tensor network sizes and values of $k$.}
+    \label{fig:peak_memory_comparison_against_dumb}
+\end{figure}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figures/peak_memory_improvement_against_dumb.png}
+    \caption{Relative peak memory improvement of the greedy strategy over the
+    naive baseline strategy.}
+    \label{fig:peak_memory_improvement_against_dumb}
+\end{figure}
+
+It is also important to note that the measured practical peak memory is generally larger than the theoretical peak memory. This is expected because the practical measurement uses the resident set size (RSS) of the process. RSS captures the memory currently resident in physical memory for the whole program as well. Therefore, the practical results should be interpreted as an end-to-end system measurement, while the theoretical results should be interpreted as an idealized estimate of tensor-level memory behaviour.
+
+Despite the limited practical improvement, the results remain encouraging. The proposed algorithm and library do not yet include the full set of coupled optimizations used by mature tensor contraction frameworks, yet they still perform identical to the state-of-the-art baseline in most practical cases and even outperform upon existing naive implementations. This is significant because the baseline benefits from years of coupled optimization across path finding, contraction execution, memory handling, and low-level implementation. With stronger integration into the execution layer, especially through memory reuse and compiler-level optimization, the theoretical advantages of the algorithm are likely to translate more directly into practical gains.
 
 \section{Future Work}
 
