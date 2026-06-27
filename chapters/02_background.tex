@@ -12,7 +12,7 @@ A tensor is a multidimensional array that generalizes the concept of vectors and
 \begin{figure}[ht]
     \centering
     \includegraphics[width=1.0\textwidth]{figures/tensor_definition.png}
-    \caption{Examples of rank-0, 1, 2, 3 tensors (i.e.\ a scalar, vector, matrix, order-3 tensor)}\label{fig:tensor_definition}
+    \caption{Examples of rank-0, 1, 2, 3 tensors (i.e.\ a scalar, vector, matrix, order-3 tensor). Adapted from~\cite{tensors-graph}.}\label{fig:tensor_definition}
 \end{figure}
 
 \subsection{Tensor Contractions}
@@ -27,7 +27,7 @@ where indices $i_1, \ldots, i_r$ are the contracted (summed) indices shared betw
 A more compact and standard representation of tensor contractions is given by Einstein notation (Einstein summation convention), where repeated indices are implicitly summed over. For instance, the contraction above can be written concisely as:
 
 \begin{equation}
-\mathcal{C}_{jk} = \mathcal{A}_{ij} \mathcal{B}_{ik}
+\mathcal{C}_{j_1, \ldots, j_m, k_1, \ldots, k_n} = \mathcal{A}_{i_1, \ldots, i_r, j_1, \ldots, j_m} \mathcal{B}_{i_1, \ldots, i_r, k_1, \ldots, k_n}
 \end{equation}
 
 where $i$ is the repeated (contracted) index and is implicitly summed over all its dimensions, while $j$ and $k$ are free indices appearing in the result. This notation extends naturally to higher-order tensors and multiple contractions, making it a powerful tool for expressing complex tensor network computations in a compact form.
