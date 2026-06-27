@@ -75,15 +75,14 @@ The main tensor transposition engine used in this work is the \ac{HPTT} library~
 
 An important engineering feature of \ac{HPTT} is its optional autotuning framework. At plan creation time, the library can either estimate good implementation parameters from a performance model (fast) or explore a search space of loop orders, blocking factors, and parallelization strategies (measure/patient modes) to find the best-performing schedule for the current tensor shape and hardware. 
 
-\ac{HPTT} also supports explicit matrix/tensor packing and specializes micro-kernels to align with cache line sizes and vector register widths, thereby minimizing irregular memory accesses and enabling streaming consumption of input data. The library exposes simple C, C++, and Python interfaces for creating a transposition plan (with or without autotuning) and executing it, for example see Figure~\ref{fig:hptt_example}.
+\ac{HPTT} also supports explicit matrix/tensor packing and specializes micro-kernels to align with cache line sizes and vector register widths, thereby minimizing irregular memory accesses and enabling streaming consumption of input data. The library exposes simple C, C++, and Python interfaces for creating a transposition plan (with or without autotuning) and executing it, for example see Algorithm~\ref{alg:hptt_example}.
 
-\begin{figure}[ht]
+\begin{algorithm}[ht]
+    \caption{Example usage of \ac{HPTT}'s C++ interface from the library's documentation.}\label{alg:hptt_example}
     \begin{lstlisting}[language=C++]
-    #include <hptt.h>
-
     // allocate tensors
-    float A* = ...
-    float B* = ...
+    float* A = ...;
+    float* B = ...;
 
     // specify permutation and size
     int dim = 6;
@@ -92,14 +91,13 @@ An important engineering feature of \ac{HPTT} is its optional autotuning framewo
 
     // create a plan (shared_ptr)
     auto plan = hptt::create_plan( perm, dim, 
-                                alpha, A, size, NULL, 
-                                beta,  B, NULL, 
-                                hptt::ESTIMATE, numThreads);
-
+                                   alpha, A, size, NULL, 
+                                   beta,  B, NULL, 
+                                   hptt::ESTIMATE, numThreads);
+                                
     // execute the transposition
     plan->execute();
     \end{lstlisting}  
-    \caption{Example usage of \ac{HPTT}'s C++ interface from the library's documentation.}\label{fig:hptt_example}
-\end{figure}
+\end{algorithm}
 
 In practice, integrating \ac{HPTT} as the transposition layer in a tensor contraction pipeline significantly reduces the overall runtime, because the cost of rearranging tensor data becomes comparable, if not minor, to the cost of the high-performance \ac{GEMM} kernels if not optimized.
