@@ -11,7 +11,6 @@
         numbers=left,
     ]
     def FIND_OPTIMAL_PERMUTATION(network, contraction_path, k):
-        validate_k(k, network, contraction_path)
         persistent_path = build_persistent_contraction_path(network, 
             contraction_path)
         initial_perms = identity_permutations(network.tensors)
@@ -54,8 +53,7 @@
             candidates += largest_intermediate_tensors(persistent_path)
 
             sort_descending(candidates, key=memory_size)
-            unique_candidates = deduplicate_by_identity(candidates)
-            selected = unique_candidates.take_first(k)
+            selected = candidates.take_first(k)
 
             return sort_by_leaf_status(selected)
     \end{lstlisting}
@@ -152,8 +150,8 @@
         label={fig:greedy_recursive_planning_pseudocode},
         numbers=left,
     ]
-    def PLAN_NODE(node, frozen_nodes, desired_layouts):
-        if node is null or node.step is null:
+    def PLAN_NODE(node, frozen_nodes, desired_layouts): 
+        if node.is_leaf:
             return
 
         left, right, result = get_step_tensors(node.step)
