@@ -22,13 +22,6 @@ Hypergraph partitioning methods can be extended to multi-objective optimization,
 
 Slicing is one of the most widely used methods for reducing peak memory. It involves fixing certain indices to specific values, thereby decomposing a large contraction into multiple smaller subproblems. Each slice can be computed independently, significantly reducing memory requirements at the cost of increased total computation. Figure~\ref{fig:index_slicing} illustrates this process.
 
-\begin{figure}[ht]
-    \centering
-    \includegraphics[width=1.325\textwidth,angle=-90]{figures/index_slicing.png}
-    \caption{Illustration of index slicing in tensor contraction}
-    \label{fig:index_slicing}
-\end{figure}
-
 This approach has been extensively used in quantum circuit simulation, including in Google's quantum supremacy experiments~\cite{arute2019quantum}. Later work formalized slicing as an optimization problem, selecting indices to slice in order to trade off memory and runtime~\cite{gray2021hyper}. In practice, slicing is especially attractive when the memory footprint of the original contraction exceeds available RAM, because it can reduce the size of intermediates by several orders of magnitude.
 
 However, slicing also introduces a trade-off between memory and execution cost that must be carefully managed. In the context of quantum circuit simulation, Google's quantum advantage experiment used slicing to reduce the peak memory of a 53-qubit simulation, at the expense of decomposing the contraction into $2^8 = 256$ independent cut instances (paths) for 12 cycles, which exponentially scales to $2^{19} = 524,288$ cut instances for 14 cycles which is more than the unsliced contraction~\cite{arute2019quantum}. 
