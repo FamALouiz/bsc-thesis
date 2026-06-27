@@ -7,47 +7,61 @@ The purpose of this chapter is to outline the implementational details of the li
 
 \section{Interface}
 
-The library exposes a concise Python interface, see Figure~\ref{fig:istrategy_interface}, for permutation strategies that is independent of the concrete optimization algorithm. This interface is defined as a runtime-checkable protocol and makes it possible to register and interchange different strategy implementations without changing the surrounding compilation pipeline.
+The library exposes a concise Python interface, see Listing~\ref{lst:istrategy_interface}, for permutation strategies that is independent of the concrete optimization algorithm. This interface is defined as a runtime-checkable protocol and makes it possible to register and interchange different strategy implementations without changing the surrounding compilation pipeline.
 
-\begin{figure}[ht]
-    \centering
-    \begin{lstlisting}[language=python]
-    @runtime_checkable
-    class IStrategy(Protocol):
-        @staticmethod
-        def find_optimal_permutation(
-            network: TensorNetwork, contraction_path: ContractionPath
-        ) -> list[TensorOperation]:
-            ...
-    \end{lstlisting}
-    \caption{Outgoing python interface for permutation discovery strategies.}
-    \label{fig:istrategy_interface}
-\end{figure}
+\begin{center}
+\begin{lstlisting}[
+    language=python,
+    caption={Outgoing python interface for permutation discovery strategies.},
+    label={lst:istrategy_interface},
+    numbers=left,
+    linewidth=0.8\linewidth,
+    xleftmargin=0.1\linewidth
+]
+@runtime_checkable
+class IStrategy(Protocol):
+    @staticmethod
+    def find_optimal_permutation(
+        network: TensorNetwork, contraction_path: ContractionPath
+    ) -> list[TensorOperation]:
+        ...
+\end{lstlisting}
+\end{center}
 
 
 This interface is the library's public contract for strategy implementations. The \texttt{find\_optimal\_permutation} method is responsible for producing an ordered sequence of tensor operations that realize an optimized contraction plan.
 
-The strategy implementation receives two explicit inputs: a tensor network and a contraction path. The tensor network is represented by the \texttt{TensorNetwork} dataclass, see Figure~\ref{fig:tensor_network_dataclass}, which contains the initial tensor collection, the desired output indices, and a size map. The contraction path is a sequence of index pairs that specifies the pairwise contraction order. Internally, the tensor network manages its tensors through a private \texttt{\_Tensorpool} abstraction, enabling dynamic reuse of tensor objects across contraction steps instead of allocating repeated tensor storage. This decision is important for performance, and it will be highlighted again in later sections when discussing the algorithm's datastructures and execution behavior. Finally, a strategy's return type is not a raw permutation matrix or a list of index orders, but an explicit intermediate representation in the form of \texttt{TensorOperation} objects.
+The strategy implementation receives two explicit inputs: a tensor network and a contraction path. The tensor network is represented by the \texttt{TensorNetwork} dataclass, see Listing~\ref{fig:tensor_network_dataclass}, which contains the initial tensor collection, the desired output indices, and a size map mapping tensor legs to the corresponding dimension size. The contraction path is a sequence of index pairs that specifies the pairwise contraction order. Internally, the tensor network manages its tensors through a private \texttt{\_Tensorpool} abstraction, enabling dynamic reuse of tensor objects across contraction steps instead of allocating repeated tensor storage. This decision is important for performance, and it will be highlighted again in later sections when discussing the algorithm's datastructures and execution behavior. Finally, a strategy's return type is not a raw permutation matrix or a list of index orders, but an explicit intermediate representation in the form of \texttt{TensorOperation} objects.
 
 
-\begin{figure}[ht]
-    \centering
-    \begin{lstlisting}[language=python]
+\begin{center}
+    \begin{lstlisting}[
+        language=python,    
+        numbers=left,
+        linewidth=0.8\linewidth,
+        xleftmargin=0.15\linewidth,
+        caption={Snippet of the tensor network dataclass.},
+        label={fig:tensor_network_dataclass}
+    ]
     @dataclass(init=False)
     class TensorNetwork:
         tensors: _TensorPool
         output_indices: list[int]
         size_dict: dict[int, int]
     \end{lstlisting}
-    \caption{Snippet of the tensor network dataclass.}
-    \label{fig:tensor_network_dataclass}
-\end{figure}
+\end{center}
 
-The intermediate representation, see Figure~\ref{fig:intermediate_representation_objects}, decouples permutation planning from execution. It allows the optimizer to express both layout transformations and contraction steps as first-class operations that can be later compiled, scheduled, or simulated by the pipeline.
+The intermediate representation, see Listing~\ref{fig:intermediate_representation_objects}, decouples permutation planning from execution. It allows the optimizer to express both layout transformations and contraction steps as first-class operations that can be later compiled, scheduled, or simulated by the pipeline.
 
-\begin{figure}[ht]
-    \centering
-    \begin{lstlisting}[language=python]
+\begin{center}
+\begin{lstlisting}[
+    language=python,
+    caption={Snippets of the intermeidate representation objects.},
+    label={fig:intermediate_representation_objects},
+    numbers=left,
+    linewidth=0.85\linewidth,
+    xleftmargin=0.1\linewidth
+]
     class TensorOperation(ABC):
         @abstractmethod
         def apply(
@@ -59,10 +73,9 @@ The intermediate representation, see Figure~\ref{fig:intermediate_representation
 
     class TensorContractionOperation(TensorOperation):
         ...
-    \end{lstlisting}
-    \caption{Snippets of the intermeidate representation objects.}
-    \label{fig:intermediate_representation_objects}
-\end{figure}
+\end{lstlisting}
+\end{center}
+
 
 Additionally, strategies expose a \texttt{get\_peak\_memory} method for a second aspect of the interface: cost estimation. It computes the maximum memory footprint that a given path and its permutations will require during execution. Similarly, \texttt{get\_total\_memory} reports the total memory movement associated with the same plan. These metrics are useful for comparing candidate strategies and selecting one that balances performance and resource usage.
 
@@ -113,102 +126,15 @@ In addition to the default inputs from the interface, the method accepts a third
 
 The method then prepares a \texttt{PersistentContractionPath}. This preparation is essential because the algorithm requires random-access queries to intermediate network states to reason about which tensors are the largest and to determine their positions and index structures. By constructing the persistent path upfront, subsequent queries avoid the expensive recomputation of contraction steps.
 
-\begin{figure}[ht]
-    \centering
-    \begin{lstlisting}[language=python]
-    def FIND_OPTIMAL_PERMUTATION(network, contraction_path, k):
-        validate_k(k, network, contraction_path)
-        persistent_path = build_persistent_contraction_path(network, 
-            contraction_path)
-        initial_perms = identity_permutations(network.tensors)
-        intermediate_perms = identity_permutations(
-            persistent_path.intermediate_results)
-
-        if persistent_path.num_steps == 0:
-            return materialize_operations(initial_perms, 
-                intermediate_perms, contraction_path)
-
-        tree, leaf_to_node, step_to_node = build_tree_maps(persistent_path)
-        peak_nodes = find_peak_nodes(network, 
-            persistent_path, leaf_to_node, step_to_node, k)
-
-        desired_layouts = {}
-        for node in peak_nodes:
-            desired_layouts[node.id] = compute_peak_target_layout(node, 
-                desired_layouts)
-
-        plan_recursive_layouts(tree.root, desired_layouts, 
-            frozen_nodes=peak_nodes)
-        return materialize_operations(initial_perms, intermediate_perms, 
-            contraction_path)
-    \end{lstlisting}
-    \caption{Pseudocode for the overview and initialization phase of the greedy strategy.}
-    \label{fig:greedy_overview_pseudocode}
-\end{figure}
-
 \subsection{Finding Peak Nodes}
 
 The first major algorithmic phase identifies which tensors in the contraction tree should be treated as ``peaks''. In this step, a unified list of candidate tensors that includes both initial tensors from the network and intermediate results produced during the contraction steps are constructed. For each candidate, it computes an estimate memory cost.
 
-Once all candidates are gathered and assigned memory costs, the function sorts them in descending order of memory. It then performs a deduplication pass to select the top $k$ unique tensors by identity. Because the same contraction step might be referenced multiple times in the candidate lists, deduplication ensures that each tensor is counted only once. Finally, the selected nodes are sorted by their leaf status (leaf nodes first), returning them in a stable order that respects both the memory priority and structural properties. It is important to note that failing to freeze leaf nodes first might lead to an infeasible problem. The corresponding selection logic is illustrated in Figure~\ref{fig:greedy_peak_nodes_pseudocode}.
-
-\begin{figure}[ht]
-    \centering
-    \begin{lstlisting}[language=python]
-    def FIND_PEAK_NODES(network, persistent_path, 
-        leaf_to_node, step_to_node, k):
-            candidates = []
-            candidates += largest_tensors(network)
-            candidates += largest_intermediate_tensors(persistent_path)
-
-            sort_descending(candidates, key=memory_size)
-            unique_candidates = deduplicate_by_identity(candidates)
-            selected = unique_candidates.take_first(k)
-
-            return sort_by_leaf_status(selected)
-    \end{lstlisting}
-    \caption{Pseudocode for selecting the top-$k$ peak tensors from the contraction tree.}
-    \label{fig:greedy_peak_nodes_pseudocode}
-\end{figure}
+Once all candidates are gathered and assigned memory costs, the function sorts them in descending order of memory. It then performs a deduplication pass to select the top $k$ unique tensors by identity. Because the same contraction step might be referenced multiple times in the candidate lists, deduplication ensures that each tensor is counted only once. Finally, the selected nodes are sorted by their leaf status (leaf nodes first), returning them in a stable order that respects both the memory priority and structural properties. It is important to note that failing to freeze leaf nodes first might lead to an infeasible problem. The corresponding selection logic is illustrated in Listing~\ref{fig:greedy_peak_nodes_pseudocode}.
 
 \subsection{Computing Target Layouts for Peak Tensors}
 
-Once the peak nodes are identified, the strategy must compute a target layout for each peak tensor. That is a desired ordering of its indices that aligns with \ac{GEMM}-friendly patterns and minimizes the permutation cost to achieve that layout. The target layout for a peak tensor is inferred from its position in the contraction tree and the layouts of its neighboring tensors. The function implements a systematic strategy that considers several cases. Figure~\ref{fig:greedy_peak_layout_pseudocode} shows the core pseudocode for this target-layout computation.
-
-\begin{figure}[ht]
-    \centering
-    \begin{lstlisting}[language=python]
-    def COMPUTE_PEAK_TARGET_LAYOUT(node, desired_layouts):
-        if node.is_leaf:
-            return node.input_indices
-
-        if node.is_root:
-            return sort_by_size(node.input_indices)
-
-        parent = node.parent
-        left, right, _ = get_step_tensors(parent.contraction_step)
-        contracted = get_contracted_indices(node.tensor, sibling(node))
-        free = node.input_indices - contracted
-
-        if desired_layouts.contains(parent.id):
-            free_order = sort_by_layout(free, desired_layouts[parent.id])
-        else:
-            free_order = sort_by_size(free)
-
-        if desired_layouts.contains(sibling(node).id):
-            contracted_order = sort_by_layout(contracted, 
-                desired_layouts[sibling(node).id])
-        else:
-            contracted_order = sort_by_size(contracted)
-
-        if node is left child:
-            return concatenate(free_order, contracted_order)
-        else:
-            return concatenate(contracted_order, free_order)
-    \end{lstlisting}
-    \caption{Pseudocode for computing the target layout of a peak tensor.}
-    \label{fig:greedy_peak_layout_pseudocode}
-\end{figure}
+Once the peak nodes are identified, the strategy must compute a target layout for each peak tensor. That is a desired ordering of its indices that aligns with \ac{GEMM}-friendly patterns and minimizes the permutation cost to achieve that layout. The target layout for a peak tensor is inferred from its position in the contraction tree and the layouts of its neighboring tensors. The function implements a systematic strategy that considers several cases. Listing~\ref{fig:greedy_peak_layout_pseudocode} shows the core pseudocode for this target-layout computation.
 
 \subsubsection{Leaf Node Handling}
 
@@ -232,104 +158,21 @@ The final target layout is constructed by concatenating the sorted free and cont
 
 A critical challenge in the permutation planning phase is determining how to arrange the indices of tensors involved in a contraction so that they satisfy two potentially conflicting objectives: (1) the indices of the two input tensors should be arranged so that their contracted indices are contiguous and aligned, and (2) the free indices should be arranged in an order that matches the desired layout of the parent tensor.
 
-This conflict arises when the desired free-index order interleaves free indices from the left and right children. For example, if the desired layout is $[l_1, r_1, l_2, r_2]$ where $l_i$ are left free indices and $r_i$ are right free indices, then it is impossible to realize this layout by arranging the left tensor as $[l_1, l_2, \ldots, c_1, c_2, \ldots]$ and the right tensor as $[c_1, c_2, \ldots, r_1, r_2, \ldots]$ without permuting the contracted indices or introducing sliced indices. The strategy checks whether the desired order follows the pattern $L^* R^*$, i.e., a prefix of left-free indices followed by a suffix of right-free indices, or any contiguous subsequence thereof. An iteration through the desired free indices in order takes place where a flag is maintained that tracks whether a right-free index has been encountered. If a left-free index is encountered after setting the flag to true, the pattern is broken and the function returns false. Otherwise, it returns true, indicating that the desired pattern is achievable via a straightforward concatenation without slicing. Figure~\ref{fig:greedy_order_check_pseudocode} shows the check performed by the algorithm.
-
-\begin{figure}[ht]
-    \centering
-    \begin{lstlisting}[language=python]
-    def HAS_LEFT_THEN_RIGHT_ORDER(desired_free, left_free, right_free):
-        seen_right = false
-        for index in desired_free:
-            if index in right_free:
-                seen_right = true
-            else if index in left_free and seen_right:
-                return false
-        return true
-    \end{lstlisting}
-    \caption{Pseudocode for checking whether the free-index order is representable without slicing.}
-    \label{fig:greedy_order_check_pseudocode}
-\end{figure}
+This conflict arises when the desired free-index order interleaves free indices from the left and right children. For example, if the desired layout is $[l_1, r_1, l_2, r_2]$ where $l_i$ are left free indices and $r_i$ are right free indices, then it is impossible to realize this layout by arranging the left tensor as $[l_1, l_2, \ldots, c_1, c_2, \ldots]$ and the right tensor as $[c_1, c_2, \ldots, r_1, r_2, \ldots]$ without permuting the contracted indices or introducing sliced indices. The strategy checks whether the desired order follows the pattern $L^* R^*$, i.e., a prefix of left-free indices followed by a suffix of right-free indices, or any contiguous subsequence thereof. An iteration through the desired free indices in order takes place where a flag is maintained that tracks whether a right-free index has been encountered. If a left-free index is encountered after setting the flag to true, the pattern is broken and the function returns false. Otherwise, it returns true, indicating that the desired pattern is achievable via a straightforward concatenation without slicing. Listing~\ref{fig:greedy_order_check_pseudocode} shows the check performed by the algorithm.
 
 \subsubsection{Selecting Sliced Indices for Interleaved Patterns}
 
 When the desired free-index order is interleaved and does not follow the $L^* R^*$ pattern, the strategy falls back to a slicing approach. The idea is to partition the free indices into two sets: those that will be kept in their natural left-then-right order (the ``representable'' portion) and those that will be marked as sliced (the ``irregular'' portion). Sliced indices are treated as participating in slicing operations rather than in the main permutation, and their handling is deferred to a lower level of the execution stack.
 
-Finding the partition that maximizes the number of representable indices is done by computing, for each possible cutoff point, the length of the longest subsequence that follows the $L^* R^*$ pattern. The function precomputes prefix counts of left indices and suffix counts of right indices, then iterates over all possible switch points to find the one that maximizes the combined count, in essence a classic dynamic programming problem. The pseudocode for this partitioning is shown in Figure~\ref{fig:greedy_select_sliced_pseudocode}.
+Finding the partition that maximizes the number of representable indices is done by computing, for each possible cutoff point, the length of the longest subsequence that follows the $L^* R^*$ pattern. The function precomputes prefix counts of left indices and suffix counts of right indices, then iterates over all possible switch points to find the one that maximizes the combined count, in essence a classic dynamic programming problem. The pseudocode for this partitioning is shown in Listing~\ref{fig:greedy_select_sliced_pseudocode}.
 
 Once the best partition is found, all indices not included in the representable portion are added to the sliced set. These sliced indices are then removed from consideration in the subsequent layout computation, effectively reducing the problem to a smaller subset of indices that can be arranged without interleaving.
-
-\begin{figure}[ht]
-    \centering
-    \begin{lstlisting}[language=python]
-    def SELECT_SLICED_INDICES(desired_free, left_free, right_free):
-        best_keep = -1
-        best_split = 0
-        prefix_left = compute_prefix_counts(desired_free, left_free)
-        suffix_right = compute_suffix_counts(desired_free, right_free)
-
-        for split from 0 to length(desired_free):
-            keep = prefix_left[split] + suffix_right[split]
-            if keep > best_keep:
-                best_keep = keep
-                best_split = split
-
-        sliced = {}
-        for i, index in enumerate(desired_free):
-            keep_left = (i < best_split and index in left_free)
-            keep_right = (i >= best_split and index in right_free)
-            if not (keep_left or keep_right):
-                sliced.add(index)
-
-        return sliced
-    \end{lstlisting}
-    \caption{Pseudocode for selecting sliced indices when free-index order is interleaved.}
-    \label{fig:greedy_select_sliced_pseudocode}
-\end{figure}
 
 \subsection{Recursive Layout Planning}
 
 With peak tensors identified and their target layouts computed, the strategy must propagate compatible layouts throughout the contraction tree, ensuring that all non-peak tensors receive permutations that are compatible with their parent's expectations. 
 
-This propagation starts from the root of the contraction tree and recursively descends to both children. At each internal node, the optimal layouts are computed for the left and right input tensors based on the node's position in the tree and the requirements of its siblings. The recursive planning logic is summarized in Figure~\ref{fig:greedy_recursive_planning_pseudocode}.
-
-\begin{figure}[ht]
-    \centering
-    \begin{lstlisting}[language=python]
-    def PLAN_NODE(node, frozen_nodes, desired_layouts):
-        if node is null or node.step is null:
-            return
-
-        left, right, result = get_step_tensors(node.step)
-        contracted = get_contracted_indices(left, right)
-        left_free = left.indices - contracted
-        right_free = right.indices - contracted
-
-        desired_free = determine_desired_free_order(node, desired_layouts)
-        if HAS_LEFT_THEN_RIGHT_ORDER(desired_free, left_free, right_free):
-            sliced = {}
-        else:
-            sliced = SELECT_SLICED_INDICES(desired_free, left_free, right_free)
-
-        left_target = build_left_target(left_free, 
-            sliced, contracted, desired_free)
-        right_target = build_right_target(right_free, 
-            sliced, contracted, desired_free)
-        result_target = build_result_target(left_free, 
-            right_free, sliced, desired_free)
-
-        if node.left not in frozen_nodes:
-            assign_layout(node.left, left_target)
-        if node.right not in frozen_nodes:
-            assign_layout(node.right, right_target)
-        if node not in frozen_nodes:
-            assign_layout(node, result_target)
-
-        PLAN_NODE(node.left, frozen_nodes, desired_layouts)
-        PLAN_NODE(node.right, frozen_nodes, desired_layouts)
-    \end{lstlisting}
-    \caption{Pseudocode for the recursive layout planning phase.}
-    \label{fig:greedy_recursive_planning_pseudocode}
-\end{figure}
+This propagation starts from the root of the contraction tree and recursively descends to both children. At each internal node, the optimal layouts are computed for the left and right input tensors based on the node's position in the tree and the requirements of its siblings. The recursive planning logic is summarized in Listing~\ref{fig:greedy_recursive_planning_pseudocode}.
 
 \subsubsection{Base Case and Termination}
 
@@ -363,25 +206,7 @@ The order of operations (assigning layouts to children before recursing, and rec
 
 \subsection{Layout Assignment and Permutation Computation}
 
-Once the recursive planning phase has computed a target layout for each tensor in the contraction tree, the strategy must assign these layouts and compute the corresponding permutation operations. The assignment def is shown in Figure~\ref{fig:greedy_assign_permutation_pseudocode}.
-
-\begin{figure}[ht]
-    \centering
-    \begin{lstlisting}[language=python]
-    def ASSIGN_PERMUTATION(node, target_layout):
-        tensor = get_node_tensor(node)
-        permutation = compute_permutation(tensor.indices, target_layout)
-
-        if node.is_leaf:
-            initial_permutations[node.position] = permutation
-        else:
-            intermediate_permutations[node.step] = permutation
-
-        desired_layouts[node.id] = target_layout
-    \end{lstlisting}
-    \caption{Pseudocode for assigning a permutation to a tensor node after layout planning.}
-    \label{fig:greedy_assign_permutation_pseudocode}
-\end{figure}
+Once the recursive planning phase has computed a target layout for each tensor in the contraction tree, the strategy must assign these layouts and compute the corresponding permutation operations. The assignment def is shown in Listing~\ref{fig:greedy_assign_permutation_pseudocode}.
 
 With each tensor in hand, a permutation vector is computed that transforms the tensor's current index ordering to the target layout. Formally, a permutation vector $\pi$ is found such that $\pi[i]$ indicates the position in the current index list of the index that should appear at position $i$ in the target layout.
 

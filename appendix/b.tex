@@ -1,0 +1,208 @@
+% !TeX root = ../main.tex
+% Add the above to each chapter to make compiling the PDF easier in some editors.
+
+\chapter{Algorithms and Listings}
+
+\begin{center}
+    \begin{lstlisting}[
+        language=python,
+        caption={Pseudocode for the overview and initialization phase of the greedy strategy.},
+        label={fig:greedy_overview_pseudocode},
+        numbers=left,
+    ]
+    def FIND_OPTIMAL_PERMUTATION(network, contraction_path, k):
+        validate_k(k, network, contraction_path)
+        persistent_path = build_persistent_contraction_path(network, 
+            contraction_path)
+        initial_perms = identity_permutations(network.tensors)
+        intermediate_perms = identity_permutations(
+            persistent_path.intermediate_results)
+
+        if persistent_path.num_steps == 0:
+            return materialize_operations(initial_perms, 
+                intermediate_perms, contraction_path)
+
+        tree, leaf_to_node, step_to_node = build_tree_maps(persistent_path)
+        peak_nodes = find_peak_nodes(network, 
+            persistent_path, leaf_to_node, step_to_node, k)
+
+        desired_layouts = {}
+        for node in peak_nodes:
+            desired_layouts[node.id] = compute_peak_target_layout(node, 
+                desired_layouts)
+
+        plan_recursive_layouts(tree.root, desired_layouts, 
+            frozen_nodes=peak_nodes)
+        return materialize_operations(initial_perms, intermediate_perms, 
+            contraction_path)
+    \end{lstlisting}
+\end{center}
+
+\newpage
+
+\begin{center}
+    \begin{lstlisting}[
+        language=python,    
+        caption={Pseudocode for selecting the top-$k$ peak tensors from the contraction tree.},
+        label={fig:greedy_peak_nodes_pseudocode},
+        numbers=left,
+    ]
+    def FIND_PEAK_NODES(network, persistent_path, 
+        leaf_to_node, step_to_node, k):
+            candidates = []
+            candidates += largest_tensors(network)
+            candidates += largest_intermediate_tensors(persistent_path)
+
+            sort_descending(candidates, key=memory_size)
+            unique_candidates = deduplicate_by_identity(candidates)
+            selected = unique_candidates.take_first(k)
+
+            return sort_by_leaf_status(selected)
+    \end{lstlisting}
+\end{center}
+
+\begin{center}
+    \begin{lstlisting}[
+        language=python,
+        caption={Pseudocode for computing the target layout of a peak tensor.},
+        label={fig:greedy_peak_layout_pseudocode},
+        numbers=left,]
+    def COMPUTE_PEAK_TARGET_LAYOUT(node, desired_layouts):
+        if node.is_leaf:
+            return node.input_indices
+
+        if node.is_root:
+            return sort_by_size(node.input_indices)
+
+        parent = node.parent
+        left, right, _ = get_step_tensors(parent.contraction_step)
+        contracted = get_contracted_indices(node.tensor, sibling(node))
+        free = node.input_indices - contracted
+
+        if desired_layouts.contains(parent.id):
+            free_order = sort_by_layout(free, desired_layouts[parent.id])
+        else:
+            free_order = sort_by_size(free)
+
+        if desired_layouts.contains(sibling(node).id):
+            contracted_order = sort_by_layout(contracted, 
+                desired_layouts[sibling(node).id])
+        else:
+            contracted_order = sort_by_size(contracted)
+
+        if node is left child:
+            return concatenate(free_order, contracted_order)
+        else:
+            return concatenate(contracted_order, free_order)
+    \end{lstlisting}
+\end{center}
+
+\begin{center}
+    \begin{lstlisting}[
+        language=python,
+        caption={Pseudocode for checking whether the free-index order is representable without slicing.},
+        label={fig:greedy_order_check_pseudocode},
+        numbers=left,
+    ]
+    def HAS_LEFT_THEN_RIGHT_ORDER(desired_free, left_free, right_free):
+        seen_right = false
+        for index in desired_free:
+            if index in right_free:
+                seen_right = true
+            else if index in left_free and seen_right:
+                return false
+        return true
+    \end{lstlisting}
+\end{center}
+
+\begin{center}
+    \begin{lstlisting}[
+        language=python,
+        caption={Pseudocode for selecting sliced indices when free-index order is interleaved.},
+        label={fig:greedy_select_sliced_pseudocode},
+        numbers=left,
+    ]
+    def SELECT_SLICED_INDICES(desired_free, left_free, right_free):
+        best_keep = -1
+        best_split = 0
+        prefix_left = compute_prefix_counts(desired_free, left_free)
+        suffix_right = compute_suffix_counts(desired_free, right_free)
+
+        for split from 0 to length(desired_free):
+            keep = prefix_left[split] + suffix_right[split]
+            if keep > best_keep:
+                best_keep = keep
+                best_split = split
+
+        sliced = {}
+        for i, index in enumerate(desired_free):
+            keep_left = (i < best_split and index in left_free)
+            keep_right = (i >= best_split and index in right_free)
+            if not (keep_left or keep_right):
+                sliced.add(index)
+
+        return sliced
+    \end{lstlisting}
+\end{center}
+
+\begin{center}
+    \begin{lstlisting}[
+        language=python,
+        caption={Pseudocode for the recursive layout planning phase.},
+        label={fig:greedy_recursive_planning_pseudocode},
+        numbers=left,
+    ]
+    def PLAN_NODE(node, frozen_nodes, desired_layouts):
+        if node is null or node.step is null:
+            return
+
+        left, right, result = get_step_tensors(node.step)
+        contracted = get_contracted_indices(left, right)
+        left_free = left.indices - contracted
+        right_free = right.indices - contracted
+
+        desired_free = determine_desired_free_order(node, desired_layouts)
+        if HAS_LEFT_THEN_RIGHT_ORDER(desired_free, left_free, right_free):
+            sliced = {}
+        else:
+            sliced = SELECT_SLICED_INDICES(desired_free, left_free, right_free)
+
+        left_target = build_left_target(left_free, 
+            sliced, contracted, desired_free)
+        right_target = build_right_target(right_free, 
+            sliced, contracted, desired_free)
+        result_target = build_result_target(left_free, 
+            right_free, sliced, desired_free)
+
+        if node.left not in frozen_nodes:
+            assign_layout(node.left, left_target)
+        if node.right not in frozen_nodes:
+            assign_layout(node.right, right_target)
+        if node not in frozen_nodes:
+            assign_layout(node, result_target)
+
+        PLAN_NODE(node.left, frozen_nodes, desired_layouts)
+        PLAN_NODE(node.right, frozen_nodes, desired_layouts)
+    \end{lstlisting}
+\end{center}
+
+\newpage
+\begin{center}
+    \begin{lstlisting}[
+        language=python,
+        caption={Pseudocode for assigning a permutation to a tensor node after layout planning.},
+        label={fig:greedy_assign_permutation_pseudocode},
+        numbers=left,
+    ]
+    def ASSIGN_PERMUTATION(node, target_layout):
+        tensor = get_node_tensor(node)
+        permutation = compute_permutation(tensor.indices, target_layout)
+
+        if node.is_leaf:
+            initial_permutations[node.position] = permutation
+        else:
+            intermediate_permutations[node.step] = permutation
+
+        desired_layouts[node.id] = target_layout
+    \end{lstlisting}
+\end{center}
