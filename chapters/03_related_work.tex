@@ -3,7 +3,7 @@
 
 \chapter{Related Work}\label{chapter:related_work}
 
-Early work primarily optimized for FLOPs, but it is now well understood that minimizing FLOPs alone can lead to prohibitively large intermediate tensors and thus excessive memory consumption. Therefore, a new set of algorithms have been developed to reduce this effect of the memory. This section reviews these contributions, with a focus on techniques that explicitly reduce memory footprint or data movement.
+Early work primarily optimized for \ac{FLOP}s, but it is now well understood that minimizing \ac{FLOP}s alone can lead to prohibitively large intermediate tensors and thus excessive memory consumption. Therefore, a new set of algorithms have been developed to reduce this effect of the memory. This section reviews these contributions, with a focus on techniques that explicitly reduce memory footprint or data movement.
 
 
 \section{Treewidth-Based and Graph-Theoretic Methods}
@@ -14,9 +14,9 @@ However, exact treewidth minimization is NP-hard~\cite{dumitrescu2018benchmarkin
 
 \section{Hypergraph Partitioning Approaches}
 
-More recent work models tensor networks as hypergraphs, enabling more accurate representation of multi-index tensors. Gray and Kourtis~\cite{gray2021hyper} introduced a hypergraph-based contraction path optimizer that uses partitioning techniques to minimize both FLOPs and intermediate tensor sizes. This framework allows explicit incorporation of memory constraints and has been widely adopted in tools such as \texttt{cotengra}.
+More recent work models tensor networks as hypergraphs, enabling more accurate representation of multi-index tensors. Gray and Kourtis~\cite{gray2021hyper} introduced a hypergraph-based contraction path optimizer that uses partitioning techniques to minimize both \ac{FLOP}s and intermediate tensor sizes. This framework allows explicit incorporation of memory constraints and has been widely adopted in tools such as \texttt{cotengra}.
 
-Hypergraph partitioning methods can be extended to multi-objective optimization, balancing FLOPs and memory. For instance, multi-criteria cost functions penalize large intermediate tensors, effectively reducing peak memory usage. However, these methods typically focus on static path selection and do not account for runtime memory movement.
+Hypergraph partitioning methods can be extended to multi-objective optimization, balancing \ac{FLOP}s and memory. For instance, multi-criteria cost functions penalize large intermediate tensors, effectively reducing peak memory usage. However, these methods typically focus on static path selection and do not account for runtime memory movement.
 
 \section{Slicing Techniques}
 
