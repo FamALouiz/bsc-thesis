@@ -60,11 +60,13 @@ The intermediate representation, see Listing~\ref{fig:intermediate_representatio
     label={fig:intermediate_representation_objects},
     numbers=left,
     linewidth=0.85\linewidth,
-    xleftmargin=0.1\linewidth
+    xleftmargin=0.1\linewidth,
+    escapeinside={(*}{*)},
+    morekeywords={Any}
 ]
     class TensorOperation(ABC):
         @abstractmethod
-        def apply(
+        def (*apply*)(
             self, *inputs: TensorOperationResult, **kwargs: dict[str, Any]
         ) -> TensorOperationResult:
 
