@@ -3,7 +3,7 @@
 
 \chapter{Related Work}\label{chapter:related_work}
 
-Early work primarily optimized for \ac{FLOP}s, but it is now well understood that minimizing \ac{FLOP}s alone can lead to prohibitively large intermediate tensors and thus excessive memory consumption. Therefore, a new set of algorithms have been developed to reduce this effect of the memory. This section reviews these contributions, with a focus on techniques that explicitly reduce memory footprint or data movement.
+Early work primarily optimized for \ac{FLOP}s, but it is now well understood that minimizing \ac{FLOP}s alone can lead to prohibitively large intermediate tensors and thus excessive memory consumption~\cite{pednault2017pareto}. Therefore, a new set of algorithms have been developed to reduce this effect of the memory. This section reviews these contributions, with a focus on techniques that explicitly reduce memory footprint or data movement.
 
 
 \section{Treewidth-Based and Graph-Theoretic Methods}
@@ -31,7 +31,7 @@ Slicing is one of the most widely used methods for reducing peak memory. It invo
 
 This approach has been extensively used in quantum circuit simulation, including in Google's quantum supremacy experiments~\cite{arute2019quantum}. Later work formalized slicing as an optimization problem, selecting indices to slice in order to trade off memory and runtime~\cite{gray2021hyper}. In practice, slicing is especially attractive when the memory footprint of the original contraction exceeds available RAM, because it can reduce the size of intermediates by several orders of magnitude.
 
-However, slicing also introduces a trade-off between memory and execution cost that must be carefully managed. In the context of quantum circuit simulation, Google's quantum supremacy experiment used slicing to reduce the peak memory of a 53-qubit simulation, at the expense of performing many more independent contractions than in the unsliced case~\cite{arute2019quantum}. 
+However, slicing also introduces a trade-off between memory and execution cost that must be carefully managed. In the context of quantum circuit simulation, Google's quantum advantage experiment used slicing to reduce the peak memory of a 53-qubit simulation, at the expense of decomposing the contraction into $2^8 = 256$ independent cut instances (paths) for 12 cycles, which exponentially scales to $2^{19} = 524,288$ cut instances for 14 cycles which is more than the unsliced contraction~\cite{arute2019quantum}. 
 
 The benefits of slicing are not limited to raw memory reduction. Because individual slices are independent, they expose a high degree of parallelism and can be distributed across processors or compute nodes with minimal synchronization. This property is especially advantageous for out-of-core or distributed execution, where fitting a single slice into local memory or cache can substantially improve throughput. Several works therefore treat slicing as a practical mechanism to scale tensor contraction to larger circuits or networks than would otherwise fit on a single device.
 
