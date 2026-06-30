@@ -217,13 +217,13 @@ The time complexity of the greedy strategy can be analyzed as follows. Let $n$ d
 
 The peak node identification phase involves computing memory costs for all candidate tensors and sorting them. This is $O((n + p) \log(n + p))$.
 
-The target layout computation phase finds the target peak layout for each of the $r$ peak nodes. Each call performs constant-time or $O(d \log d)$ operations (sorting indices). This phase is thus $O(r \cdot d \log d)$.
+The target layout computation phase finds the target peak layout for each of the $r$ peak nodes. Each call performs constant-time or $O(d)$ operations (sorting indices) by taking advantage of the reduced range of possible index sizes and counting sort. This phase is thus $O(r \cdot d)$.
 
 The recursive planning phase traverses the entire contraction tree (which has $O(n + p)$ nodes) and performs $O(d)$ work per node (sorting indices, partitioning sets). This phase is $O((n + p) \cdot d)$.
 
 The permutation computation phase computes $O(n + p)$ permutations, each requiring $O(d \log(d))$ work in the worst case (building a permutation vector for a rank-$d$ tensor). This phase is $O((n + p) \cdot d \log (d))$.
 
-Overall, the algorithm's complexity is $O(d(n + p) \log(d) + (n + p) \log(n + p))$. For small ranks $d$ (typical in practical tensor networks) and assuming a full contraction path lengths $p = n - 1$, this is effectively $O(n \log(n))$ in the problem size.
+Overall, the algorithm's complexity is $O((n + p) \log(n + p) + r \cdot d + (n + p) \cdot d \log(d))$. For small ranks $d$ (typical in practical tensor networks) and assuming a full contraction path lengths $p = n - 1$, this is effectively $O(n \log(n))$ in the problem size.
 
 \subsection{Design Rationales}
 
